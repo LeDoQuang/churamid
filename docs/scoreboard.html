@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#11100d">
+  <title>IDEA GAMEDAY 2026 · Bảng xếp hạng</title>
+  <link rel="stylesheet" href="./scoreboard.css?v=13">
+</head>
+<body>
+  <main>
+    <header>
+      <div><span class="eyebrow">IDEA GAMEDAY 2026</span><h1>Bảng xếp hạng trực tiếp</h1></div>
+      <div class="event-state"><i id="stateDot"></i><strong id="eventStatus">Đang kết nối</strong><small id="updatedAt">—</small></div>
+    </header>
+    <section class="podium" id="podium" aria-label="Ba đội dẫn đầu"></section>
+    <section class="board">
+      <div class="board-head"><span>Hạng</span><span>Đội</span><span>Tiến độ</span><span>Kết nối</span><span>Thời gian</span></div>
+      <div id="rows" class="rows"></div>
+      <p id="empty" class="empty" hidden>Chưa có đội thi.</p>
+    </section>
+    <footer><a href="/">Về trang đăng nhập</a><span>Kết quả tự cập nhật sau mỗi 2 giây.</span></footer>
+  </main>
+  <script src="./client-config.js?v=13.4"></script>
+<script src="./scoreboard.js?v=13.4"></script>
+</body>
+</html>

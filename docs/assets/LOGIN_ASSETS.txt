@@ -1,0 +1,5 @@
+Hai file giao diện đăng nhập:
+- back.png: ảnh nền toàn trang
+- title.png: ảnh tiêu đề ở góc trái
+
+Có thể thay trực tiếp hai file này và giữ nguyên tên. Không cần sửa HTML/CSS.

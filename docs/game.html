@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <meta name="theme-color" content="#11100d">
+  <title>IDEA GAMEDAY 2026 · Phòng thi</title>
+  <link rel="stylesheet" href="./game.css?v=13.4">
+</head>
+<body>
+<main id="app" class="app">
+  <canvas id="game"></canvas>
+
+  <header class="topbar">
+    <div class="brand">
+      <span id="teamNameText">IDEA GAMEDAY 2026</span>
+      <strong id="mapTitle">Khám phá Kim tự tháp</strong>
+    </div>
+    <div class="objective" id="objective"><small>Mục tiêu</small><b>Chờ đủ bốn thành viên</b></div>
+    <div class="top-stats">
+      <div class="chip player-chip"><span id="playerNameText">Người chơi</span></div>
+      <div class="chip"><span>Đội</span><b id="onlineText">0/4</b></div>
+      <div class="chip"><span>Thời gian</span><b id="timeText">0:00</b></div>
+      <button type="button" class="chip connection-chip" id="connectionChip" title="Đổi địa chỉ máy chủ"><span id="connectionText">Đang kết nối</span></button>
+      <div class="chip cheat-chip" id="cheatChip">Chế độ thử nghiệm</div>
+      <button type="button" class="chip logout-chip" id="logoutBtn">Thoát</button>
+    </div>
+  </header>
+
+  <div class="map-progress" id="mapProgress" aria-label="Tiến độ màn chơi">
+    <span class="active">Tầng 1</span><i></i><span>Tầng 2</span><i></i><span>Tầng 3</span>
+  </div>
+
+  <div id="observerBar" class="observer-bar" hidden>
+    <span>Đang quan sát</span>
+    <select id="observerView" aria-label="Chọn người chơi để theo dõi">
+      <option value="1">Người chơi 1</option><option value="2">Người chơi 2</option><option value="3">Người chơi 3</option><option value="4">Người chơi 4</option>
+    </select>
+  </div>
+
+  <div id="interaction" class="interaction"></div>
+  <div id="toast" class="toast" aria-live="polite"></div>
+  <div id="controls" class="controls">Di chuyển bằng WASD hoặc phím mũi tên. Nhấn E để tương tác.</div>
+
+  <div id="mobileControls" class="mobile-controls" aria-label="Điều khiển cảm ứng">
+    <div id="joystick" class="joystick" role="application" aria-label="Cần điều khiển">
+      <div id="joystickKnob" class="joystick-knob"></div>
+    </div>
+    <div class="mobile-actions">
+      <button id="mobileMain" type="button" class="mobile-action primary-action">Tương tác</button>
+      <button id="mobileAlt" type="button" class="mobile-action" hidden></button>
+      <button id="mobileThird" type="button" class="mobile-action" hidden></button>
+    </div>
+  </div>
+  <div class="portrait-note" id="portraitNote"><span class="rotate-icon">↻</span><strong>Xoay ngang điện thoại</strong><small>Trò chơi cần màn hình ngang để hiển thị đúng tỉ lệ.</small></div>
+
+
+  <section id="serverSetup" class="overlay server-overlay" hidden>
+    <article class="card server-card">
+      <div class="eyebrow">Kết nối máy chủ sự kiện</div>
+      <h2>Nhập địa chỉ server</h2>
+      <p class="lead">Dán đường dẫn HTTPS do Cloudflare Tunnel cung cấp. Ví dụ: <code>https://ten-tunnel.trycloudflare.com</code></p>
+      <label class="server-label" for="serverUrlInput">Địa chỉ server</label>
+      <input id="serverUrlInput" class="server-input" type="url" inputmode="url" autocomplete="url" placeholder="https://...trycloudflare.com">
+      <div class="server-actions">
+        <button id="connectServerBtn" type="button" class="primary">Kiểm tra và kết nối</button>
+        <button id="useSameOriginBtn" type="button" class="secondary">Dùng server cùng trang</button>
+      </div>
+      <p id="serverStatus" class="server-status" aria-live="polite"></p>
+      <p class="waiting">Địa chỉ này được lưu riêng trên thiết bị hiện tại. Có thể bấm trạng thái “Trực tuyến” trên thanh trên cùng để đổi lại.</p>
+    </article>
+  </section>
+
+  <section id="lobby" class="overlay show">
+    <article class="card lobby-card">
+      <div class="eyebrow" id="lobbyTeamName">Phòng của đội</div>
+      <h1>Khám phá<br><em>Kim tự tháp</em></h1>
+      <p class="lead">Mỗi thành viên tự nhập tên khi đăng nhập. Vai trò được xếp lần lượt theo thứ tự vào phòng; đội có thể chơi với 3 hoặc 4 thành viên.</p>
+      <div class="role-preview">
+        <img id="roleAvatar" alt="Nhân vật của cửa sổ này">
+        <div><small>NGƯỜI CHƠI</small><strong id="lobbyRole">Đang tải</strong><p id="roleDesc">Thành viên của đội</p></div>
+      </div>
+      <div class="slots" id="slots"></div>
+      <div class="lobby-actions"><button id="readyBtn" type="button" class="primary">Sẵn sàng</button><button id="fullscreenBtn" type="button" class="secondary fullscreen-btn">Mở toàn màn hình</button></div>
+      <p class="waiting" id="waitingText">Đang chờ các cửa sổ khác...</p>
+      
+    </article>
+  </section>
+
+  <section id="stageIntro" class="overlay">
+    <article class="card stage-card">
+      <div class="eyebrow" id="stageEyebrow">Tầng 1</div>
+      <h2 id="stageName">Tượng mã bí ẩn</h2>
+      <p id="stageDescription"></p>
+      <div class="countdown" id="countdown">7</div>
+      <button id="stageReadyBtn" type="button" class="primary stage-ready" hidden>Sẵn sàng</button>
+      <p id="stageReadyText" class="stage-ready-text" aria-live="polite"></p>
+    </article>
+  </section>
+
+  <section id="resetOverlay" class="overlay">
+    <article class="card event-card danger">
+      <div class="eyebrow">Lời nguyền Pharaoh</div>
+      <h2>Quay lại điểm xuất phát</h2>
+      <p id="resetReason"></p>
+      <div class="countdown small" id="resetCount">3</div>
+    </article>
+  </section>
+
+  <aside id="inspectPanel" class="inspect-panel inspect-statue-only" aria-hidden="true">
+    <button class="close" data-close="inspectPanel">×</button>
+    <img id="inspectImage" alt="Tượng mèo được phóng to">
+    <h2 id="inspectTitle" class="roman-statue-label">I</h2>
+  </aside>
+
+  <section id="keypad" class="modal" aria-hidden="true">
+    <article class="keypad-card">
+      <button class="close" data-close="keypad">×</button>
+      <div class="eyebrow">Bàn khóa tượng Sư Tử</div>
+      <h2>Chọn bốn số La Mã</h2>
+      <p>Chọn bốn vị trí tượng khác biệt. Thứ tự không quan trọng.</p>
+      <div id="codeDisplay" class="code-display">— — — —</div>
+      <div id="keyGrid" class="key-grid"></div>
+      <div id="keyFeedback" class="key-feedback"></div>
+      <div class="key-actions"><button id="clearCode" type="button">Xóa</button><button id="submitCode" type="button" class="primary small-btn">Xác nhận</button></div>
+    </article>
+  </section>
+
+  <section id="installGuide" class="modal install-guide" aria-hidden="true">
+    <article class="install-card">
+      <button class="close" data-close="installGuide" aria-label="Đóng">×</button>
+      <div class="eyebrow">Chế độ toàn màn hình trên iPhone</div>
+      <h2>Mở game như một ứng dụng</h2>
+      <ol>
+        <li>Nhấn nút <b>Chia sẻ</b> của Safari.</li>
+        <li>Chọn <b>Thêm vào Màn hình chính</b>.</li>
+        <li>Mở biểu tượng <b>GAMEDAY 2026</b> vừa tạo rồi xoay ngang.</li>
+      </ol>
+      <p>Safari trên một số iPhone không cho trang web thường bật toàn màn hình bằng nút. Mở từ Màn hình chính sẽ bỏ thanh địa chỉ và dành nhiều chỗ hơn cho game.</p>
+      <button id="closeInstallGuide" type="button" class="primary">Đã hiểu</button>
+    </article>
+  </section>
+
+  <section id="eventOverlay" class="overlay event-status-overlay">
+    <article class="card event-card">
+      <div class="eyebrow" id="eventOverlayEyebrow">Sự kiện</div>
+      <h2 id="eventOverlayTitle">Đang chờ ban tổ chức</h2>
+      <p id="eventOverlayText">Trò chơi sẽ tiếp tục khi ban tổ chức bắt đầu.</p>
+    </article>
+  </section>
+
+  <section id="winOverlay" class="overlay">
+    <article class="card event-card win">
+      <div class="eyebrow">Hoàn thành thử thách</div>
+      <h2>Đã mở rương kho báu</h2>
+      <p>Cả đội đã vượt qua ba tầng của kim tự tháp.</p>
+      <div class="result"><small>Tổng thời gian</small><strong id="finalTime">0:00</strong></div>
+      <button id="restartBtn" type="button" class="primary">Quay lại</button>
+    </article>
+  </section>
+</main>
+<script src="./client-config.js?v=13.4"></script>
+<script src="./game.js?v=13.4"></script>
+</body>
+</html>

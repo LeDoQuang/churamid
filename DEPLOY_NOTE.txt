@@ -1,2 +1,0 @@
-Thư mục này là frontend GitHub Pages.
-GitHub Settings -> Pages -> Deploy from a branch -> main -> /docs.
