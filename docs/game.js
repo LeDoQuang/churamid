@@ -1,5 +1,5 @@
 'use strict';
-const GAMEDAY_VERSION='V13.4';
+const GAMEDAY_VERSION='V13.7';
 
 const hashParams=new URLSearchParams(location.hash.slice(1));
 if(hashParams.get('session')){
@@ -20,17 +20,33 @@ const NAMES = ['Ranger','Orc','Dark Oracle','Fallen Angel'];
 const DISPLAY_NAMES=Array.from({length:4},(_,i)=>PROFILE.players?.[i]||`Người chơi ${i+1}`);
 const MAP_NAMES = ['Phòng chờ','Tượng mã bí ẩn','Chạy thoát khỏi xác ướp','Hoàng đế trở về'];
 const MAP_OBJECTIVES = [
-  'Chờ ban tổ chức bắt đầu',
-  'Tìm bốn tượng khác biệt và giải đúng mật mã của tượng Sư Tử',
-  'Đưa quả cầu tới cổng tầng 3 và chạy qua cửa',
-  'Gạt hai cần, lấy chìa khóa và mở rương kho báu',
+  'Chờ ban tổ chức mở sự kiện',
+  'Tìm bốn tượng thần mèo khác biệt và giải mật mã',
+  'Chuyền quả cầu vàng, né xác ướp và đưa cầu tới cuối con đường',
+  'Phối hợp gạt cần, lấy chìa khóa và mở rương báu',
 ];
-const STAGE_DESCRIPTIONS = [
-  '',
-  'Mười hai tượng mèo đứng thành vòng tròn. Bốn tượng có đặc điểm khác biệt; vị trí giờ của chúng là bốn số mở khóa.',
-  'Quả cầu làm người cầm di chuyển chậm hơn. Chuyền cho đồng đội để né Golem và mang cầu tới cánh cửa tầng 3.',
-  'Người chỉ huy nhìn toàn bộ mê cung và chỉ đường. Các thành viên thám hiểm lần lượt gạt hai cần, vào phòng lấy chìa khóa rồi mở rương.',
-];
+const RULES = {
+  1:{title:'MAP 1',lines:[
+    'Mật mã gồm 4 chữ số tượng trưng cho vị trí của 4 tượng thần mèo khác biệt so với những tượng còn lại.',
+    '“Mèo luôn nhìn thời gian thuận theo chiều kim đồng hồ”.',
+    'Hãy chú ý vào màu sắc và những chi tiết nổi bật.'
+  ]},
+  2:{title:'MAP 2',lines:[
+    'Quả cầu vàng luôn bị các xác ướp canh giữ nghiêm ngặt, chúng sẽ bám theo kẻ cầm nó.',
+    'Kẻ cầm quả cầu vàng sẽ di chuyển chậm hơn những người còn lại, vì thế 4 người chơi hãy chuyền cầu liên tục để né tránh xác ướp.',
+    'Trên đường đi có nhiều bẫy, 4 người chơi hãy né tránh và chạy thẳng đến cuối con đường - nơi có tượng sư tử và đặt quả cầu vào đó.'
+  ]},
+  3:{title:'MAP 3',lines:[
+    '“Sự liên kết là sức mạnh” - chỉ 1 người chơi nhìn thấy toàn bộ bản đồ và vị trí chính xác của các cạm bẫy, cần gạt và nơi cất giữ chìa khóa. Người ấy có khả năng dẫn lối và đánh dấu đường đi cho 3 người chơi còn lại.',
+    '3 người chơi còn lại di chuyển theo hướng dẫn của người chỉ huy, gạt thành công các cần gạt để mở cửa lối vào khu vực chứa chìa khóa.',
+    'Công dụng của chìa khóa là mở khóa rương báu, hãy chú ý vào những phía góc bàn đổ.',
+    '“Các xác ướp luôn theo sát mọi động tĩnh của bạn, đừng để chúng phát hiện”.'
+  ]}
+};
+function ruleHtml(stage=0){
+  const stages=stage&&RULES[stage]?[stage]:[1,2,3];
+  return stages.map(n=>`<section class="rule-block ${n===stage?'active':''}"><h3>${RULES[n].title}</h3>${RULES[n].lines.map(line=>`<p>${line}</p>`).join('')}</section>`).join('');
+}
 const ROMAN=['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 function roman(n){return ROMAN[Number(n)]||String(n||'')}
 
@@ -40,14 +56,14 @@ const ui = {
   roleDot: document.getElementById('roleDot'), roleText: document.getElementById('roleText'), onlineText: document.getElementById('onlineText'), timeText: document.getElementById('timeText'), cheatChip: document.getElementById('cheatChip'), connectionChip:document.getElementById('connectionChip'), connectionText:document.getElementById('connectionText'),
   mapProgress: document.getElementById('mapProgress'), interaction: document.getElementById('interaction'), toast: document.getElementById('toast'), controls: document.getElementById('controls'),
   lobby: document.getElementById('lobby'), roleAvatar: document.getElementById('roleAvatar'), lobbyRole: document.getElementById('lobbyRole'), roleDesc: document.getElementById('roleDesc'), slots: document.getElementById('slots'), readyBtn: document.getElementById('readyBtn'), fullscreenBtn:document.getElementById('fullscreenBtn'), waitingText: document.getElementById('waitingText'),
-  stageIntro: document.getElementById('stageIntro'), stageEyebrow: document.getElementById('stageEyebrow'), stageName: document.getElementById('stageName'), stageDescription: document.getElementById('stageDescription'), countdown: document.getElementById('countdown'), stageReadyBtn:document.getElementById('stageReadyBtn'), stageReadyText:document.getElementById('stageReadyText'),
+  stageIntro: document.getElementById('stageIntro'), stageEyebrow: document.getElementById('stageEyebrow'), stageName: document.getElementById('stageName'), stageDescription: document.getElementById('stageDescription'), countdown: document.getElementById('countdown'),
   resetOverlay: document.getElementById('resetOverlay'), resetReason: document.getElementById('resetReason'), resetCount: document.getElementById('resetCount'),
   inspectPanel: document.getElementById('inspectPanel'), inspectImage: document.getElementById('inspectImage'), inspectTitle: document.getElementById('inspectTitle'),
   keypad: document.getElementById('keypad'), codeDisplay: document.getElementById('codeDisplay'), keyGrid: document.getElementById('keyGrid'), keyFeedback: document.getElementById('keyFeedback'), clearCode: document.getElementById('clearCode'), submitCode: document.getElementById('submitCode'),
   winOverlay: document.getElementById('winOverlay'), finalTime: document.getElementById('finalTime'), restartBtn: document.getElementById('restartBtn'),
   mobileControls:document.getElementById('mobileControls'),joystick:document.getElementById('joystick'),joystickKnob:document.getElementById('joystickKnob'),mobileMain:document.getElementById('mobileMain'),mobileAlt:document.getElementById('mobileAlt'),mobileThird:document.getElementById('mobileThird'),
   serverSetup:document.getElementById('serverSetup'),serverUrlInput:document.getElementById('serverUrlInput'),connectServerBtn:document.getElementById('connectServerBtn'),useSameOriginBtn:document.getElementById('useSameOriginBtn'),serverStatus:document.getElementById('serverStatus'),
-  installGuide:document.getElementById('installGuide'),closeInstallGuide:document.getElementById('closeInstallGuide'), observerBar:document.getElementById('observerBar'),observerView:document.getElementById('observerView'),eventOverlay:document.getElementById('eventOverlay'),eventOverlayEyebrow:document.getElementById('eventOverlayEyebrow'),eventOverlayTitle:document.getElementById('eventOverlayTitle'),eventOverlayText:document.getElementById('eventOverlayText'),
+  installGuide:document.getElementById('installGuide'),closeInstallGuide:document.getElementById('closeInstallGuide'),rulesBtn:document.getElementById('rulesBtn'),rulesModal:document.getElementById('rulesModal'),rulesTitle:document.getElementById('rulesTitle'),rulesContent:document.getElementById('rulesContent'),closeRulesBtn:document.getElementById('closeRulesBtn'), observerBar:document.getElementById('observerBar'),observerView:document.getElementById('observerView'),eventOverlay:document.getElementById('eventOverlay'),eventOverlayEyebrow:document.getElementById('eventOverlayEyebrow'),eventOverlayTitle:document.getElementById('eventOverlayTitle'),eventOverlayText:document.getElementById('eventOverlayText'),
 };
 const ctx = ui.canvas.getContext('2d',{alpha:false,desynchronized:true})||ui.canvas.getContext('2d');
 let W=1280,H=720,DPR=1,CSS_W=1280,CSS_H=720,VIEW_SCALE=1,state=null,lastStatePhase='',lastStage=0,ready=false,codeInput=[],cam={x:0,y:0},toastTimer=0;
@@ -69,7 +85,7 @@ const SRC = {
   floor:'assets/floor.webp',wall:'assets/wall.webp',glyph:'assets/wall_glyph.webp',torch:'assets/torch.webp',
   cat_normal:'assets/cat_normal.webp',cat_red_nose:'assets/cat_red_nose.webp',cat_square:'assets/cat_square.webp',cat_yellow_eyes:'assets/cat_yellow_eyes.webp',cat_swapped_collar:'assets/cat_swapped_collar.webp',
   sphinx_closed:'assets/sphinx_closed.webp',sphinx_open:'assets/sphinx_open.webp',key:'assets/key.webp',
-  ball:'assets/ball.webp',mud:'assets/mud.webp',door2:'assets/door2.webp',door3:'assets/door3.webp',lever:'assets/lever.webp',chest:'assets/chest.webp',spike:'assets/spike_asset.webp',
+  ball:'assets/ball.webp',mud:'assets/mud.webp',door2:'assets/door2.webp',door3:'assets/door3.webp',lever:'assets/lever.webp',chest:'assets/chest.webp',
   p1_idle:'assets/p1_idle.webp',p1_walk:'assets/p1_walk.webp',p2_idle:'assets/p2_idle.webp',p2_walk:'assets/p2_walk.webp',p3_idle:'assets/p3_idle.webp',p3_walk:'assets/p3_walk.webp',p4_idle:'assets/p4_idle.webp',p4_walk:'assets/p4_walk.webp',
   golem_idle:'assets/golem_idle.webp',golem_walk:'assets/golem_walk.webp',golem2_idle:'assets/golem2_idle.webp',golem2_walk:'assets/golem2_walk.webp',golem3_idle:'assets/golem3_idle.webp',golem3_walk:'assets/golem3_walk.webp',
 };
@@ -88,10 +104,10 @@ function localMoveDirection(){
   const y=((keys.has('KeyS')||keys.has('ArrowDown')||touchMove.down)?1:0)-((keys.has('KeyW')||keys.has('ArrowUp')||touchMove.up)?1:0);
   const d=Math.hypot(x,y)||1;return{x:x/d,y:y/d,moving:!!(x||y)};
 }
-function smoothPoint(key,x,y,dt,threshold){
+function smoothPoint(key,x,y,dt,threshold,rate=22){
   let v=smoothCache.get(key);
   if(!v||Math.hypot(x-v.x,y-v.y)>threshold){v={x,y};smoothCache.set(key,v);return{x,y}}
-  const k=1-Math.exp(-dt*22);v.x+=(x-v.x)*k;v.y+=(y-v.y)*k;return{x:v.x,y:v.y};
+  const k=1-Math.exp(-dt*rate);v.x+=(x-v.x)*k;v.y+=(y-v.y)*k;return{x:v.x,y:v.y};
 }
 function localEllipseHit(px,py,cx,cy,rx,ry){const dx=(px-cx)/rx,dy=(py-cy)/ry;return dx*dx+dy*dy<1}
 function localMap1Blocked(x,y,m){
@@ -134,6 +150,7 @@ function localMoveSpeed(p){
     if(m?.holder===PLAYER_ID-1&&!m.ballPass&&!m.delivered)speed*=.76;
     if((m?.muds||[]).some(md=>Math.hypot(selfVisual.x-md.x,selfVisual.y-md.y)<md.r))speed*=.48;
   }
+  if(state.stage===3&&(state.map3?.muds||[]).some(md=>Math.hypot(selfVisual.x-md.x,selfVisual.y-md.y)<md.r))speed*=.52;
   return speed*(state.cheat?2.15:1);
 }
 function predictSelf(p,dt,d){
@@ -165,10 +182,10 @@ function updateVisuals(dt){
   const unitThreshold=state.stage===3?3.2:360;
   const receiveAge=Math.min(.12,(performance.now()-lastStateReceivedAt)/1000);
   renderPlayers=(state.players||[]).map(p=>{
-    const isSelf=p.id===PLAYER_ID;
+    const isSelf=!IS_OBSERVER&&p.id===PLAYER_ID;
     if(!isSelf){
       const tx=p.x+(p.vx||0)*Math.min(.07,receiveAge),ty=p.y+(p.vy||0)*Math.min(.07,receiveAge);
-      return{...p,...smoothPoint(`s${state.stage}-p${p.id}`,tx,ty,dt,unitThreshold)};
+      return{...p,...smoothPoint(`s${state.stage}-p${p.id}`,tx,ty,dt,unitThreshold,IS_OBSERVER?14:22)};
     }
     const d=localMoveDirection();
     predictSelf(p,dt,d);
@@ -192,9 +209,9 @@ function updateVisuals(dt){
     }
     return{...p,x:selfVisual.x,y:selfVisual.y,vx:selfVisual.vx,vy:selfVisual.vy};
   });
-  renderMap2Golems=(state.map2?.golems||[]).map((g,i)=>({...g,...smoothPoint(`s2-g${i}`,g.x,g.y,dt,360)}));
-  renderMap3Golems=(state.map3?.golems||[]).map((g,i)=>({...g,...smoothPoint(`s3-g${i}`,g.x,g.y,dt,3.2)}));
-  renderBall=state.map2?.ball?{...state.map2.ball,...smoothPoint('s2-ball',state.map2.ball.x,state.map2.ball.y,dt,420)}:null;
+  renderMap2Golems=(state.map2?.golems||[]).map((g,i)=>({...g,...smoothPoint(`s2-g${i}`,g.x,g.y,dt,360,IS_OBSERVER?14:22)}));
+  renderMap3Golems=(state.map3?.golems||[]).map((g,i)=>({...g,...smoothPoint(`s3-g${i}`,g.x,g.y,dt,3.2,IS_OBSERVER?14:22)}));
+  renderBall=state.map2?.ball?{...state.map2.ball,...smoothPoint('s2-ball',state.map2.ball.x,state.map2.ball.y,dt,420,IS_OBSERVER?14:22)}:null;
 }
 function cameraEase(rate=12){return 1-Math.exp(-frameDt*rate)}
 
@@ -282,17 +299,11 @@ async function fetchJson(url,options={}){
 }
 async function post(url,data){return fetchJson(apiUrl(url),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})}
 ui.readyBtn.addEventListener('click',async()=>{
-  if(IS_OBSERVER)return;
+  if(IS_OBSERVER||!state||state.phase!=='lobby')return;
+  ui.readyBtn.disabled=true;ui.readyBtn.textContent='Đang gửi...';
   const r=await post('/api/ready',{player:PLAYER_ID,ready:true});
-  if(r.ok){ready=true;ui.readyBtn.textContent='Đã sẵn sàng';ui.readyBtn.disabled=true}else showToast(r.message||'Không thể giữ vị trí người chơi.','bad');
-});
-ui.stageReadyBtn?.addEventListener('click',()=>{
-  if(!state||state.phase!=='briefing'||state.countdown>0||state.briefingAcks?.[PLAYER_ID-1])return;
-  ui.stageReadyBtn.disabled=true;ui.stageReadyBtn.textContent='Đang gửi...';
-  action('briefing_ok');
-  setTimeout(()=>{
-    if(state?.phase==='briefing'&&!state.briefingAcks?.[PLAYER_ID-1]){ui.stageReadyBtn.disabled=false;ui.stageReadyBtn.textContent='Sẵn sàng'}
-  },1400);
+  if(r.ok){ready=true;ui.readyBtn.textContent=r.started?'Đang bắt đầu...':'Đã bấm bắt đầu'}
+  else{ui.readyBtn.disabled=false;ui.readyBtn.textContent='Bắt đầu';showToast(r.message||'Không thể xác nhận bắt đầu.','bad')}
 });
 function isStandalone(){return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}
 async function enterFullscreen(){
@@ -307,6 +318,8 @@ async function enterFullscreen(){
 }
 if(ui.fullscreenBtn){ui.fullscreenBtn.textContent=isStandalone()?'Đang toàn màn hình':((document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)?'Toàn màn hình':'Ẩn thanh Safari');ui.fullscreenBtn.addEventListener('click',enterFullscreen)}
 ui.closeInstallGuide?.addEventListener('click',()=>panel(ui.installGuide,false));
+function openRules(){const st=state?.stage||0;ui.rulesTitle.textContent=st?`${RULES[st].title} · ${MAP_NAMES[st]}`:'Luật chơi';ui.rulesContent.innerHTML=ruleHtml(st);panel(ui.rulesModal,true)}
+ui.rulesBtn?.addEventListener('click',openRules);ui.closeRulesBtn?.addEventListener('click',()=>panel(ui.rulesModal,false));
 ui.restartBtn.addEventListener('click',async()=>{ui.restartBtn.disabled=true;try{await post('/api/restart',{})}catch{}sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');location.replace('./')});
 
 function action(name){
@@ -352,7 +365,7 @@ addEventListener('keyup',e=>{keys.delete(e.code);flushInput(true)});
 function resetLocalInput(){keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;ui.joystickKnob.style.transform='translate(0,0)';flushInput(true)}
 addEventListener('blur',resetLocalInput);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetLocalInput();if(usingPollFallback){clearTimeout(pollTimer);scheduleStatePoll(document.hidden?500:20)}});
-addEventListener('pagehide',()=>{try{if(!IS_OBSERVER)navigator.sendBeacon('/api/disconnect',new Blob([JSON.stringify({})],{type:'text/plain;charset=UTF-8'}))}catch{}});
+addEventListener('pagehide',()=>{try{if(!IS_OBSERVER)fetch(apiUrl('/api/disconnect'),{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':SESSION_TOKEN},body:'{}',keepalive:true,cache:'no-store'}).catch(()=>{})}catch{}});
 
 function inputState(){
   if(IS_OBSERVER)return{up:false,down:false,left:false,right:false};
@@ -395,7 +408,7 @@ function applyStateResult(result){
         if(result.map3){
           if(!result.map3.maze)result.map3.maze=state.map3?.maze||[];
           if(!result.map3.leverCells)result.map3.leverCells=state.map3?.leverCells||[];
-          if(!result.map3.traps)result.map3.traps=state.map3?.traps||[];
+          if(!result.map3.muds)result.map3.muds=state.map3?.muds||[];
         }
       }
       lastRevision=result.revision;state=result;handleState();
@@ -426,7 +439,7 @@ function websocketUrl(){
   const base=API_BASE||location.origin,u=new URL(base);
   u.protocol=u.protocol==='https:'?'wss:':'ws:';
   u.pathname=`${u.pathname.replace(/\/+$/,'')}/ws`.replace(/\/+/g,'/');
-  u.search=`session=${encodeURIComponent(SESSION_TOKEN)}&view=${PLAYER_ID}&v=13.4`;
+  u.search=`session=${encodeURIComponent(SESSION_TOKEN)}&view=${PLAYER_ID}&v=13.6`;
   return u.toString();
 }
 function startStateStream(){
@@ -449,6 +462,8 @@ function startStateStream(){
   };
 }
 setInterval(()=>{if(gameSocket?.readyState===WebSocket.OPEN){try{gameSocket.send(JSON.stringify({type:'ping',t:Date.now()}))}catch{}}},10000);
+addEventListener('online',()=>{socketFailures=0;clearTimeout(socketRetryTimer);startStateStream()});
+addEventListener('offline',()=>{resetLocalInput();setConnection('warn','Mất kết nối Internet')});
 
 const mobileActionHandlers=new WeakMap();
 function bindMobileActionButton(button){
@@ -494,20 +509,21 @@ addEventListener('pointerup',releaseJoystick,{passive:true});addEventListener('p
 function handleState(){
   if(!state)return;
   if(state.team){PROFILE.teamName=state.team.name;PROFILE.players=state.team.players;state.team.players?.forEach((n,i)=>{if(n)DISPLAY_NAMES[i]=n});if(IS_OBSERVER&&ui.observerView){const current=PLAYER_ID;ui.observerView.innerHTML=(state.players||[]).filter(p=>p.active).map(p=>`<option value="${p.id}">${String(p.displayName||`Người chơi ${p.id}`).replace(/[&<>"]/g,'')}</option>`).join('');if([...ui.observerView.options].some(o=>Number(o.value)===current))ui.observerView.value=String(current);else if(ui.observerView.options.length){PLAYER_ID=Number(ui.observerView.options[0].value);ui.observerView.value=String(PLAYER_ID)}}if(ui.teamNameText)ui.teamNameText.textContent=state.team.name;if(ui.lobbyTeamName)ui.lobbyTeamName.textContent=state.team.name}
-  const eventStatus=state.event?.status||'running';if(ui.eventOverlay){const blocked=(eventStatus==='paused'||eventStatus==='ended')&&state.phase!=='done';panel(ui.eventOverlay,blocked);if(blocked){const content=eventStatus==='paused'?['Sự kiện tạm dừng','Ban tổ chức đang tạm dừng toàn bộ phòng thi.']:eventStatus==='ended'?['Sự kiện đã kết thúc','Phòng thi đã được khóa bởi ban tổ chức.']:['Đang chờ bắt đầu','Hãy sẵn sàng và chờ ban tổ chức bắt đầu sự kiện.'];ui.eventOverlayTitle.textContent=content[0];ui.eventOverlayText.textContent=content[1]}}
+  if(!IS_OBSERVER&&state.self&&state.self!==PLAYER_ID){PLAYER_ID=Number(state.self);const sp=state.players?.[PLAYER_ID-1];PROFILE.playerId=PLAYER_ID;PROFILE.playerName=sp?.displayName||PROFILE.playerName;PROFILE.players=state.team?.players||PROFILE.players;sessionStorage.setItem('gameday-profile',JSON.stringify(PROFILE));smoothCache.clear();selfVisual=null;cam.x=cam.y=0;updateRoleUI();showToast(`Vai trò của bạn đã được cập nhật thành vị trí ${PLAYER_ID}.`,'good')}
+  const eventStatus=state.event?.status||'running';if(ui.eventOverlay){const conn=state.connectionPause||{},connectionBlocked=!!conn.paused&&state.phase!=='done',eventBlocked=(eventStatus==='paused'||eventStatus==='ended')&&state.phase!=='done',blocked=connectionBlocked||eventBlocked;panel(ui.eventOverlay,blocked);ui.eventOverlay.classList.toggle('connection-wait',connectionBlocked);if(blocked){let content;if(connectionBlocked)content=conn.resumeIn>0?['Đã đủ thành viên','Trò chơi tiếp tục sau '+Math.max(1,Math.ceil(conn.resumeIn))+' giây.']:['Đang chờ kết nối lại',`${conn.online||0}/${conn.needed||3} thành viên đang trực tuyến. Tiến độ và thời gian của đội đã được tạm giữ.`];else content=eventStatus==='paused'?['Sự kiện tạm dừng','Ban tổ chức đang tạm dừng toàn bộ phòng thi.']:['Sự kiện đã kết thúc','Phòng thi đã được khóa bởi ban tổ chức.'];ui.eventOverlayTitle.textContent=content[0];ui.eventOverlayText.textContent=content[1]}}
   const stageChanged=lastStage!==state.stage;
   if(stageChanged){
     smoothCache.clear();selfVisual=null;commanderBg=null;commanderBgKey='';cam.x=0;cam.y=0;pendingActions.length=0;keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;ui.joystickKnob.style.transform='translate(0,0)';
-    panel(ui.inspectPanel,false);panel(ui.keypad,false);panel(ui.installGuide,false);codeInput=[];updateCode();lastInteractionHtml='';ui.interaction.textContent='';scheduleResize(true);
+    panel(ui.inspectPanel,false);panel(ui.keypad,false);panel(ui.installGuide,false);panel(ui.rulesModal,false);codeInput=[];updateCode();lastInteractionHtml='';ui.interaction.textContent='';scheduleResize(true);
   }
   if(lastStatePhase!==state.phase&&state.phase==='playing')movementNeutralLock=true;
-  const uiSignature=JSON.stringify([state.stage,state.phase,Math.ceil(state.countdown||state.transitionTimer||0),Math.floor(state.totalElapsed||0),state.connectedCount,state.playerCount,state.readyCount,state.briefingReadyCount,(state.briefingAcks||[]).join(''),!!state.cheat,state.transitionTo,state.message,(state.players||[]).map(p=>[p.active,p.displayName,p.online,p.ready,p.escaped])]);
+  const uiSignature=JSON.stringify([state.stage,state.phase,Math.ceil(state.countdown||state.transitionTimer||0),Math.floor(state.totalElapsed||0),state.connectedCount,state.playerCount,state.readyCount,!!state.cheat,state.transitionTo,state.message,state.event?.status,state.connectionPause?.paused,Math.ceil(state.connectionPause?.resumeIn||0),(state.players||[]).map(p=>[p.active,p.displayName,p.online,p.ready,p.escaped])]);
   if(uiSignature!==lastUiSignature){
     lastUiSignature=uiSignature;
     ui.onlineText.textContent=`${state.connectedCount}/${state.playerCount||4}`;ui.timeText.textContent=fmt(state.totalElapsed);ui.cheatChip.classList.toggle('show',state.cheat);
     ui.mapTitle.textContent=MAP_NAMES[state.stage]||MAP_NAMES[0];ui.objective.innerHTML=`<small>Mục tiêu</small><b>${MAP_OBJECTIVES[state.stage]}</b>`;
     updateSlots();updateProgress();updateOverlay();updateControls();updateMobileControls();
-    const selfState=state.players?.[PLAYER_ID-1];if(!IS_OBSERVER&&state.phase==='lobby'&&selfState&&!selfState.ready){ready=false;ui.readyBtn.disabled=false;ui.readyBtn.textContent='Sẵn sàng'}
+    const selfState=state.players?.[PLAYER_ID-1];if(!IS_OBSERVER&&state.phase==='lobby'&&selfState){ready=!!selfState.ready;const eventOpen=state.event?.status==='running',canReady=eventOpen&&state.connectedCount>=3&&!selfState.ready;ui.readyBtn.hidden=false;ui.readyBtn.disabled=!canReady;ui.readyBtn.textContent=selfState.ready?'Đã bấm bắt đầu':eventOpen?(state.connectedCount>=3?'Bắt đầu':'Chờ đủ 3 người'):'Chờ ban tổ chức'}
   }
   if(Array.isArray(state.events))for(const ev of state.events){
     if(ev.type==='toast')showToast(ev.text,ev.kind);
@@ -518,8 +534,11 @@ function handleState(){
 }
 function updateSlots(){
   ui.slots.innerHTML='';
-  (state?.players||[]).forEach(p=>{const d=document.createElement('div');d.className=`slot ${p.active&&p.online?'online':''} ${p.active&&p.ready?'ready':''}`;const name=document.createElement('strong');name.textContent=p.active?(p.displayName||DISPLAY_NAMES[p.id-1]):`Vị trí ${p.id}`;const status=document.createElement('span');status.textContent=!p.active?'Chưa có thành viên':p.online?(p.ready?'Sẵn sàng':'Đã kết nối'):'Mất kết nối';d.append(name,document.createElement('br'),status);ui.slots.appendChild(d)});
-  ui.waitingText.textContent=state?.playerCount>=3?`${state.playerCount}/4 thành viên đã vào phòng · chờ ban tổ chức bắt đầu`:`${state?.playerCount||0}/4 thành viên đã vào phòng · cần ít nhất 3`;
+  (state?.players||[]).forEach(p=>{const d=document.createElement('div');d.className=`slot ${p.active&&p.online?'online':''} ${p.active&&p.ready?'ready':''}`;const name=document.createElement('strong');name.textContent=p.active?(p.displayName||DISPLAY_NAMES[p.id-1]):`Vị trí ${p.id}`;const status=document.createElement('span');status.textContent=!p.active?'Chưa có thành viên':p.online?(p.ready?'Đã bấm bắt đầu':'Đã kết nối'):'Mất kết nối';d.append(name,document.createElement('br'),status);ui.slots.appendChild(d)});
+  const count=state?.playerCount||0,eventStatus=state?.event?.status||'registration';
+  if(eventStatus!=='running')ui.waitingText.textContent=`${state.connectedCount||0}/${count||4} thành viên đang online · chờ ban tổ chức mở bắt đầu`;
+  else if((state.connectedCount||0)<3)ui.waitingText.textContent=`${state.connectedCount||0}/3 thành viên đang online · cần ít nhất 3`;
+  else ui.waitingText.textContent=`${state.readyCount||0}/${state.connectedCount||0} thành viên đã bấm bắt đầu`;
 }
 
 function updateProgress(){
@@ -530,26 +549,13 @@ function updateOverlay(){
   const intro=['briefing','countdown','transition'].includes(state.phase);panel(ui.stageIntro,intro);
   if(intro){
     const st=state.phase==='transition'?state.transitionTo:state.stage;
-    ui.stageEyebrow.textContent=`Tầng ${st}`;ui.stageName.textContent=MAP_NAMES[st];ui.stageDescription.textContent=STAGE_DESCRIPTIONS[st];
-    ui.stageIntro.querySelector('.stage-card')?.classList.toggle('waiting-confirm',state.phase==='briefing'&&state.countdown<=0);
-    if(state.phase==='transition'){
-      ui.countdown.textContent=Math.max(1,Math.ceil(state.transitionTimer||1));
-      ui.stageReadyBtn.hidden=false;ui.stageReadyBtn.disabled=true;ui.stageReadyBtn.textContent='Sẵn sàng';
-      ui.stageReadyText.textContent=`${state.briefingReadyCount||0}/${state.playerCount||4} thành viên sẵn sàng`;
-    }else if(state.phase==='briefing'){
-      const ownAck=!!state.briefingAcks?.[PLAYER_ID-1];
-      ui.countdown.textContent=state.countdown>0?Math.ceil(state.countdown):'';
-      ui.stageReadyBtn.hidden=IS_OBSERVER;ui.stageReadyBtn.disabled=state.countdown>0||ownAck;
-      ui.stageReadyBtn.textContent=ownAck?'Đã sẵn sàng':'Sẵn sàng';
-      ui.stageReadyText.textContent=`${state.briefingReadyCount||0}/${state.playerCount||4} thành viên sẵn sàng`;
-    }else{
-      ui.countdown.textContent=Math.max(1,Math.ceil(state.countdown));
-      ui.stageReadyBtn.hidden=true;ui.stageReadyText.textContent='Cả đội chuẩn bị bắt đầu';
-    }
+    ui.stageEyebrow.textContent=`Tầng ${st}`;ui.stageName.textContent=MAP_NAMES[st];ui.stageDescription.innerHTML=ruleHtml(st);
+    ui.countdown.textContent=Math.max(1,Math.ceil(state.phase==='transition'?(state.transitionTimer||1):state.countdown||1));
   }
   panel(ui.resetOverlay,state.phase==='resetting');if(state.phase==='resetting'){ui.resetReason.textContent=state.message||'Cả đội phải chơi lại.';ui.resetCount.textContent=Math.max(1,Math.ceil(state.countdown||state.map2?.caughtTimer||1))}
   panel(ui.winOverlay,state.phase==='done');if(state.phase==='done')ui.finalTime.textContent=fmt(state.totalElapsed);
 }
+
 function updateControls(){
   if(state?.stage===3&&PLAYER_ID===1)ui.controls.innerHTML='<b>WASD / Mũi tên</b> di chuyển con trỏ · <b>Enter</b> đánh dấu · <b>Q</b> cảnh báo · <b>E</b> xóa';
   else if(state?.stage===2)ui.controls.innerHTML='<b>WASD / Mũi tên</b> di chuyển · <b>Space</b> chuyền cầu';
@@ -659,7 +665,7 @@ function drawMap3Tile(x,y,s,gx,gy,wall){if(wall){tileImage(IMG.wall,x,y,s,s,.82)
 function drawLever(cell,on,x,y,s){const fr=on?3:0;drawTrimmed('lever',fr,x+s*.5,y+s*.98,s*.72,s*.8,1,1);ctx.fillStyle=on?'#8affac':'#ffd572';ctx.font=`700 ${s*.18}px "Segoe UI",Roboto,Arial,Tahoma,sans-serif`;ctx.textAlign='center';ctx.fillText(on?'ON':'E',x+s*.5,y+s*.18)}
 function drawDoor3At(progress,x,y,s){const fr=Math.round(clamp(progress,0,1)*5);ctx.fillStyle='#000';ctx.fillRect(Math.round(x+s*.22),Math.round(y+s*.18),Math.round(s*.56),Math.round(s*.9));drawTrimmed('door3',fr,x+s*.5,y+s*.98,s*.92,s*1.05,1,1)}
 function drawChest(progress,x,y,s){const fr=Math.round(clamp(progress||0,0,1)*3);drawTrimmed('chest',fr,x+s*.5,y+s*.95,s*.9,s*.76,1,1)}
-function drawSpike(t,x,y,s,active){ctx.save();ctx.globalAlpha=active?1:.42;if(IMG.spike)ctx.drawImage(IMG.spike,Math.round(x+s*.08),Math.round(y+s*.2),Math.round(s*.84),Math.round(s*.58));ctx.restore()}
+function drawMap3Mud(md,x,y,s){if(!IMG.mud)return;const w=s*1.08,h=s*.66;tileImage(IMG.mud,x+s*.5-w/2,y+s*.58-h/2,w,h,.9)}
 function drawMarker(mark,x,y,s){ctx.save();ctx.strokeStyle=mark.type==='danger'?'#ff5d55':'#ffe274';ctx.fillStyle=mark.type==='danger'?'#ff5d5533':'#ffe27433';ctx.lineWidth=Math.max(2,s*.05);ctx.beginPath();ctx.arc(x+s*.5,y+s*.5,s*.3,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.font=`700 ${s*.28}px "Segoe UI",Roboto,Arial,Tahoma,sans-serif`;ctx.textAlign='center';ctx.fillText(mark.type==='danger'?'!':'◆',x+s*.5,y+s*.59);ctx.restore()}
 function drawCommander(m){
   const pad=18,s=Math.min((W-pad*2)/39,(H-110)/25),ox=(W-39*s)/2,oy=88+(H-100-25*s)/2;
@@ -673,7 +679,7 @@ function drawCommander(m){
     commanderBg=c;commanderBgKey=bgKey;
   }
   ctx.drawImage(commanderBg,0,0,W,H);
-  m.traps.forEach(t=>drawSpike(t,ox+t.x*s,oy+t.y*s,s,((state.elapsed+t.phase)%2.37)<.75));
+  m.muds.forEach(md=>drawMap3Mud(md,ox+(md.x-.5)*s,oy+(md.y-.5)*s,s));
   m.markers.forEach(v=>drawMarker(v,ox+v.x*s,oy+v.y*s,s));
   m.leverCells.forEach((c,i)=>drawLever(c,m.leverOn[i],ox+c.x*s,oy+c.y*s,s));
   drawDoor3At(m.keyDoorProgress,ox+16*s,oy+12*s,s);
@@ -688,7 +694,7 @@ function drawExplorer(m,self){
   const tile=84,worldW=39*tile,worldH=25*tile,tx=clamp(self.x*tile-W/2,0,Math.max(0,worldW-W)),ty=clamp(self.y*tile-H/2,0,Math.max(0,worldH-H));const ce=cameraEase(13);cam.x+=(tx-cam.x)*ce;cam.y+=(ty-cam.y)*ce;ctx.fillStyle='#060403';ctx.fillRect(0,0,W,H);
   const minX=clamp(Math.floor(cam.x/tile)-1,0,38),maxX=clamp(Math.ceil((cam.x+W)/tile)+1,0,38),minY=clamp(Math.floor(cam.y/tile)-1,0,24),maxY=clamp(Math.ceil((cam.y+H)/tile)+1,0,24);
   for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++)drawMap3Tile(x*tile-cam.x,y*tile-cam.y,tile,x,y,m.maze[y][x]===1);
-  m.traps.forEach(t=>drawSpike(t,t.x*tile-cam.x,t.y*tile-cam.y,tile,((state.elapsed+t.phase)%2.37)<.75));
+  m.muds.forEach(md=>drawMap3Mud(md,(md.x-.5)*tile-cam.x,(md.y-.5)*tile-cam.y,tile));
   m.markers.forEach(v=>drawMarker(v,v.x*tile-cam.x,v.y*tile-cam.y,tile));
   m.leverCells.forEach((c,i)=>drawLever(c,m.leverOn[i],c.x*tile-cam.x,c.y*tile-cam.y,tile));
   drawDoor3At(m.keyDoorProgress,16*tile-cam.x,12*tile-cam.y,tile);

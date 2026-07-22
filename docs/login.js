@@ -1,4 +1,5 @@
 'use strict';
+const LOGIN_VERSION='13.9';
 const $=s=>document.querySelector(s);
 const message=$('#message');
 const API_BASE=window.GAMEDAY_API_BASE||'';

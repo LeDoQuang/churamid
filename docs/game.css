@@ -234,13 +234,6 @@ button,.joystick,.mobile-controls,.mobile-action{touch-action:none;-webkit-tap-h
 .role-chip{display:none!important}
 .mobile-action{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 
-/* V12: trạng thái sẵn sàng trước mỗi tầng */
-.stage-ready{display:block;min-width:190px;margin:16px auto 0;font-size:16px}
-.stage-ready[hidden]{display:none}
-.stage-ready-text{min-height:22px;margin:10px 0 0;color:#66573c;font-size:14px;font-weight:650}
-.stage-card.waiting-confirm .countdown{font-size:22px;color:#5f5038}
-@media(max-height:620px){.stage-ready{margin-top:8px;padding:10px 18px}.stage-ready-text{margin-top:6px}.stage-card.waiting-confirm .countdown{font-size:17px}}
-
 /* V12: tượng chỉ còn ảnh + số La Mã, bàn khóa 12 lựa chọn và trạng thái sẵn sàng. */
 .inspect-statue-only{
   padding:18px 22px 16px;
@@ -260,8 +253,6 @@ button,.joystick,.mobile-controls,.mobile-action{touch-action:none;-webkit-tap-h
 .key-grid{grid-template-columns:repeat(4,1fr);gap:9px}
 .key-grid button{font-family:Georgia,"Times New Roman",serif;font-size:20px;letter-spacing:.03em}
 .code-display{letter-spacing:.06em;font-size:25px;white-space:nowrap}
-.stage-ready:disabled{opacity:.52;cursor:default;filter:none}
-.stage-ready-text{font-variant-numeric:tabular-nums}
 
 @media(pointer:coarse),(max-width:900px){
   .inspect-statue-only{padding:calc(50px + var(--safe-top)) calc(18px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(18px + var(--safe-left))}
@@ -271,7 +262,24 @@ button,.joystick,.mobile-controls,.mobile-action{touch-action:none;-webkit-tap-h
   .key-grid{grid-template-columns:repeat(4,1fr);gap:7px}
   .key-grid button{height:clamp(46px,12vh,58px);font-size:clamp(17px,4.6vw,23px)}
   .code-display{margin:10px 0;padding:9px;font-size:clamp(20px,5vw,28px)}
-  .stage-ready{min-width:180px;min-height:48px;font-size:16px}
 }
 /* V13 — tài khoản đội, người quan sát và trạng thái sự kiện */
 #serverSetup[hidden]{display:none!important}.player-chip{max-width:190px}.player-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f4ead6}.logout-chip{pointer-events:auto;cursor:pointer;color:#d9cfbc}.logout-chip:hover{background:#302b21}.observer-bar{position:absolute;z-index:18;top:84px;right:18px;display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:rgba(18,17,13,.94)}.observer-bar span{font-size:12px;color:var(--muted)}.observer-bar select{height:34px;max-width:210px;padding:0 9px;border:1px solid #5b5240;border-radius:6px;background:#242119;color:#f7f2e7;font-weight:700}.event-status-overlay{z-index:62;background:rgba(8,7,5,.78)}.event-status-overlay .event-card{width:min(520px,94vw)}.slot strong{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.slot span{color:var(--muted);font-size:10px}@media(pointer:coarse),(max-width:900px){.player-chip{max-width:30vw}.player-chip span{font-size:10px}.logout-chip{width:34px;min-width:34px;padding:0;font-size:0}.logout-chip:after{content:'↪';font-size:17px}.observer-bar{top:calc(51px + var(--safe-top));right:calc(8px + var(--safe-right));left:auto}.observer-bar span{display:none}.observer-bar select{height:38px;max-width:42vw}.slot strong{font-size:10px}}
+
+/* V13.6: nút luật chơi và bảng luật */
+.rules-chip{min-width:38px;justify-content:center;font-size:18px;font-weight:900;cursor:pointer;color:#f4d47f}
+.rules-chip:hover{background:#30291d}
+.rules-card{position:relative;width:min(720px,94vw);max-height:min(82dvh,760px);overflow:auto;padding:28px;border:1px solid #927a48;border-radius:14px;background:#eee0bf;color:#2c2418;box-shadow:0 26px 90px #000a}
+.rules-card h2{margin:6px 0 18px;font-size:30px}
+.rules-content{display:grid;gap:16px;text-align:left}
+.rule-block{padding:16px 17px;border:1px solid #ad9667;border-radius:10px;background:#f7ebcd}
+.rule-block.active{border-color:#725622;box-shadow:inset 4px 0 0 #a97d2e}
+.rule-block h3{margin:0 0 10px;font-size:20px;color:#3a2d19}
+.rule-block p{margin:7px 0;line-height:1.52;color:#4b3d28}
+.rules-card>.primary{display:block;min-width:190px;margin:20px auto 0}
+.connection-wait .event-card{border-color:#d0aa54}
+@media(pointer:coarse),(max-width:900px){
+  .rules-chip{width:42px;min-width:42px;height:42px;padding:0;font-size:21px}
+  .rules-card{width:94vw;max-height:88dvh;padding:calc(54px + var(--safe-top)) calc(18px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(18px + var(--safe-left));border-radius:12px}
+  .rules-card h2{font-size:26px}.rule-block{padding:14px}.rule-block h3{font-size:18px}.rule-block p{font-size:14px}
+}

@@ -10,8 +10,9 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <meta name="theme-color" content="#11100d">
-  <title>IDEA GAMEDAY 2026 · Phòng thi</title>
-  <link rel="stylesheet" href="./game.css?v=13.4">
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/a.png?v=13.9">
+  <title>RUNNING CVA - CHURAMID</title>
+  <link rel="stylesheet" href="./game.css?v=13.9">
 </head>
 <body>
 <main id="app" class="app">
@@ -29,6 +30,7 @@
       <div class="chip"><span>Thời gian</span><b id="timeText">0:00</b></div>
       <button type="button" class="chip connection-chip" id="connectionChip" title="Đổi địa chỉ máy chủ"><span id="connectionText">Đang kết nối</span></button>
       <div class="chip cheat-chip" id="cheatChip">Chế độ thử nghiệm</div>
+      <button type="button" class="chip rules-chip" id="rulesBtn" aria-label="Xem lại luật chơi" title="Xem lại luật chơi">?</button>
       <button type="button" class="chip logout-chip" id="logoutBtn">Thoát</button>
     </div>
   </header>
@@ -81,13 +83,13 @@
     <article class="card lobby-card">
       <div class="eyebrow" id="lobbyTeamName">Phòng của đội</div>
       <h1>Khám phá<br><em>Kim tự tháp</em></h1>
-      <p class="lead">Mỗi thành viên tự nhập tên khi đăng nhập. Vai trò được xếp lần lượt theo thứ tự vào phòng; đội có thể chơi với 3 hoặc 4 thành viên.</p>
+      <p class="lead">Đội có thể chơi với 3 hoặc 4 thành viên. Sau khi ban tổ chức mở bắt đầu, tất cả người đang online trong đội phải bấm Bắt đầu: đủ 3/3 hoặc 4/4 thì trò chơi mới chạy.</p>
       <div class="role-preview">
         <img id="roleAvatar" alt="Nhân vật của cửa sổ này">
         <div><small>NGƯỜI CHƠI</small><strong id="lobbyRole">Đang tải</strong><p id="roleDesc">Thành viên của đội</p></div>
       </div>
       <div class="slots" id="slots"></div>
-      <div class="lobby-actions"><button id="readyBtn" type="button" class="primary">Sẵn sàng</button><button id="fullscreenBtn" type="button" class="secondary fullscreen-btn">Mở toàn màn hình</button></div>
+      <div class="lobby-actions"><button id="readyBtn" type="button" class="primary" disabled>Chờ ban tổ chức</button><button id="fullscreenBtn" type="button" class="secondary fullscreen-btn">Mở toàn màn hình</button></div>
       <p class="waiting" id="waitingText">Đang chờ các cửa sổ khác...</p>
       
     </article>
@@ -97,10 +99,8 @@
     <article class="card stage-card">
       <div class="eyebrow" id="stageEyebrow">Tầng 1</div>
       <h2 id="stageName">Tượng mã bí ẩn</h2>
-      <p id="stageDescription"></p>
+      <div id="stageDescription" class="stage-description"></div>
       <div class="countdown" id="countdown">7</div>
-      <button id="stageReadyBtn" type="button" class="primary stage-ready" hidden>Sẵn sàng</button>
-      <p id="stageReadyText" class="stage-ready-text" aria-live="polite"></p>
     </article>
   </section>
 
@@ -129,6 +129,16 @@
       <div id="keyGrid" class="key-grid"></div>
       <div id="keyFeedback" class="key-feedback"></div>
       <div class="key-actions"><button id="clearCode" type="button">Xóa</button><button id="submitCode" type="button" class="primary small-btn">Xác nhận</button></div>
+    </article>
+  </section>
+
+  <section id="rulesModal" class="modal rules-modal" aria-hidden="true">
+    <article class="rules-card">
+      <button class="close" data-close="rulesModal" aria-label="Đóng">×</button>
+      <div class="eyebrow">Luật chơi</div>
+      <h2 id="rulesTitle">Khám phá Kim tự tháp</h2>
+      <div id="rulesContent" class="rules-content"></div>
+      <button id="closeRulesBtn" type="button" class="primary">Quay lại trò chơi</button>
     </article>
   </section>
 
@@ -165,7 +175,7 @@
     </article>
   </section>
 </main>
-<script src="./client-config.js?v=13.4.2"></script>
-<script src="./game.js?v=13.4"></script>
+<script src="./client-config.js?v=13.9"></script>
+<script src="./game.js?v=13.9"></script>
 </body>
 </html>
