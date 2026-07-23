@@ -407,12 +407,8 @@ function applyStateResult(result){
   if(result.httpStatus===409){setConnection('warn','Vị trí đang được dùng');ui.waitingText.textContent=result.message||'Vị trí này đang mở ở thiết bị khác.';return false}
   if(Number.isFinite(result.revision)){
     pollFailures=0;socketFailures=0;setConnection('ok','Trực tuyến');lastStateReceivedAt=performance.now();
-    const instanceChanged=!!result.instanceId&&result.instanceId!==lastInstanceId;
-    const incomingStageRevision=Number(result.stageRevision||0);
-    const newerStage=instanceChanged||incomingStageRevision>lastStageRevision;
-    const sameStage=!instanceChanged&&incomingStageRevision===lastStageRevision;
-    if(newerStage||(sameStage&&result.revision>=lastRevision)){
-      if(state&&!instanceChanged&&incomingStageRevision===lastStageRevision&&result.stage===state.stage){
+    if(result.revision>=lastRevision){
+      if(state&&result.stage===state.stage){
         if(result.map1&&!result.map1.cats)result.map1.cats=state.map1?.cats||[];
         if(result.map2&&!result.map2.muds)result.map2.muds=state.map2?.muds||[];
         if(result.map3){
@@ -421,8 +417,7 @@ function applyStateResult(result){
           if(!result.map3.muds)result.map3.muds=state.map3?.muds||[];
         }
       }
-      if(instanceChanged){selfVisual=null;smoothCache.clear();}
-      lastInstanceId=result.instanceId||lastInstanceId;lastStageRevision=incomingStageRevision;lastRevision=result.revision;state=result;handleState();
+      lastRevision=result.revision;state=result;handleState();
     }
     return true;
   }
