@@ -283,3 +283,10 @@ button,.joystick,.mobile-controls,.mobile-action{touch-action:none;-webkit-tap-h
   .rules-card{width:94vw;max-height:88dvh;padding:calc(54px + var(--safe-top)) calc(18px + var(--safe-right)) calc(18px + var(--safe-bottom)) calc(18px + var(--safe-left));border-radius:12px}
   .rules-card h2{font-size:26px}.rule-block{padding:14px}.rule-block h3{font-size:18px}.rule-block p{font-size:14px}
 }
+
+/* V13.10: sửa thanh quan sát, luật và thao tác */
+.observer-bar[hidden]{display:none!important}
+.rules-chip{pointer-events:auto}
+.rules-card,.rules-card h2,.rules-content,.rule-block{text-align:left}
+.stage-description .rule-block h3{display:none}
+#stageEyebrow[hidden]{display:none!important}

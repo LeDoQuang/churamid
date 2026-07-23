@@ -1,5 +1,5 @@
 'use strict';
-const GAMEDAY_VERSION='V13.7';
+const GAMEDAY_VERSION='V13.10';
 
 const hashParams=new URLSearchParams(location.hash.slice(1));
 if(hashParams.get('session')){
@@ -43,9 +43,9 @@ const RULES = {
     '“Các xác ướp luôn theo sát mọi động tĩnh của bạn, đừng để chúng phát hiện”.'
   ]}
 };
-function ruleHtml(stage=0){
+function ruleHtml(stage=0,showHeading=true){
   const stages=stage&&RULES[stage]?[stage]:[1,2,3];
-  return stages.map(n=>`<section class="rule-block ${n===stage?'active':''}"><h3>${RULES[n].title}</h3>${RULES[n].lines.map(line=>`<p>${line}</p>`).join('')}</section>`).join('');
+  return stages.map(n=>`<section class="rule-block ${n===stage?'active':''}">${showHeading?`<h3>${RULES[n].title}</h3>`:''}${RULES[n].lines.map(line=>`<p>${line}</p>`).join('')}</section>`).join('');
 }
 const ROMAN=['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 function roman(n){return ROMAN[Number(n)]||String(n||'')}
@@ -75,7 +75,7 @@ const pendingActions = [];
 let cheatBuffer='';
 let movementNeutralLock=true;
 let touchMove={up:false,down:false,left:false,right:false};
-let inputSeq=0,lastInputSignature='',lastInputAt=0,inputInFlight=false,inputQueued=false;
+let inputSeq=0,actionSeq=0,lastInputSignature='',lastInputAt=0,inputInFlight=false,inputQueued=false;
 let pollFailures=0,pollTimer=0,stateRequestId=0,lastRevision=-1,connectionStarted=false,gameSocket=null,socketRetryTimer=0,socketFailures=0,usingPollFallback=false,lastSocketMessageAt=0;
 let viewportLock=null,viewportResizeTimer=0,lastOrientation=innerWidth>=innerHeight?'landscape':'portrait';
 let selfVisual=null,lastStateReceivedAt=performance.now(),lastUiSignature='',lastInteractionHtml='';
@@ -155,28 +155,32 @@ function localMoveSpeed(p){
 }
 function predictSelf(p,dt,d){
   if(!selfVisual||selfVisual.stage!==state.stage||p.escaped){
-    selfVisual={stage:state.stage,x:p.x,y:p.y,vx:p.vx||0,vy:p.vy||0,blockedX:false,blockedY:false};
+    selfVisual={stage:state.stage,x:p.x,y:p.y,vx:0,vy:0,blockedX:false,blockedY:false};
   }
   if(state.stage===3&&PLAYER_ID===1){
     selfVisual.x=p.x;selfVisual.y=p.y;selfVisual.vx=0;selfVisual.vy=0;return;
   }
-  const canPredict=state.phase==='playing'&&!p.escaped&&!movementNeutralLock;
-  const speed=localMoveSpeed(p),tx=canPredict?d.x*speed:0,ty=canPredict?d.y*speed:0;
-  const k=10,decay=Math.exp(-dt*k),oldVx=selfVisual.vx,oldVy=selfVisual.vy;
-  const stepX=tx*dt+(oldVx-tx)*(1-decay)/k,stepY=ty*dt+(oldVy-ty)*(1-decay)/k;
-  selfVisual.vx=tx+(oldVx-tx)*decay;
-  selfVisual.vy=ty+(oldVy-ty)*decay;
-  if(Math.abs(selfVisual.vx)<.001)selfVisual.vx=0;
-  if(Math.abs(selfVisual.vy)<.001)selfVisual.vy=0;
-  const nx=selfVisual.x+stepX,ny=selfVisual.y+stepY;
-  selfVisual.blockedX=localBlocked(state.stage,nx,selfVisual.y);
-  if(!selfVisual.blockedX)selfVisual.x=nx;else selfVisual.vx=0;
-  selfVisual.blockedY=localBlocked(state.stage,selfVisual.x,ny);
-  if(!selfVisual.blockedY)selfVisual.y=ny;else selfVisual.vy=0;
+  const canPredict=state.phase==='playing'&&!p.escaped;
+  const speed=localMoveSpeed(p);
+  selfVisual.vx=canPredict?d.x*speed:0;
+  selfVisual.vy=canPredict?d.y*speed:0;
+  if(!canPredict||!d.moving){selfVisual.vx=0;selfVisual.vy=0;return;}
+
+  const totalX=selfVisual.vx*dt,totalY=selfVisual.vy*dt;
+  const maxStep=state.stage===3?.075:7;
+  const steps=Math.max(1,Math.ceil(Math.max(Math.abs(totalX),Math.abs(totalY))/maxStep));
+  selfVisual.blockedX=false;selfVisual.blockedY=false;
+  for(let i=0;i<steps;i++){
+    const nx=selfVisual.x+totalX/steps;
+    if(!localBlocked(state.stage,nx,selfVisual.y))selfVisual.x=nx;else{selfVisual.vx=0;selfVisual.blockedX=true;}
+    const ny=selfVisual.y+totalY/steps;
+    if(!localBlocked(state.stage,selfVisual.x,ny))selfVisual.y=ny;else{selfVisual.vy=0;selfVisual.blockedY=true;}
+  }
   if(state.stage===1){selfVisual.x=clamp(selfVisual.x,10,1790);selfVisual.y=clamp(selfVisual.y,10,1190)}
   else if(state.stage===2){selfVisual.x=clamp(selfVisual.x,40,state.map2?.delivered?5270:5218);selfVisual.y=clamp(selfVisual.y,120,790)}
   else if(state.stage===3){selfVisual.x=clamp(selfVisual.x,.5,38.5);selfVisual.y=clamp(selfVisual.y,.5,24.5)}
 }
+
 function updateVisuals(dt){
   if(!state){renderPlayers=[];renderMap2Golems=[];renderMap3Golems=[];renderBall=null;selfVisual=null;return}
   const unitThreshold=state.stage===3?3.2:360;
@@ -199,13 +203,13 @@ function updateVisuals(dt){
       const moving=d.moving&&state.phase==='playing'&&!movementNeutralLock;
       // Hiệu chỉnh dần và giới hạn số pixel mỗi frame để gói mạng đến trễ
       // không kéo nhân vật giật đùng một lần. Khi chạm tường vẫn bám server nhanh hơn.
-      const rateX=selfVisual.blockedX?7:(moving?2.4:10);
-      const rateY=selfVisual.blockedY?7:(moving?2.4:10);
+      const rateX=selfVisual.blockedX?12:(moving?2.8:14);
+      const rateY=selfVisual.blockedY?12:(moving?2.8:14);
       const alphaX=1-Math.exp(-dt*rateX),alphaY=1-Math.exp(-dt*rateY);
-      const maxCorrection=stage3 ? 0.075 : 7.5,epsilon=stage3 ? 0.004 : 0.25;
+      const maxCorrection=stage3 ? 0.055 : 5.5,epsilon=stage3 ? 0.004 : 0.2;
       if(Math.abs(dx)>epsilon)selfVisual.x+=clamp(dx*alphaX,-maxCorrection,maxCorrection);
       if(Math.abs(dy)>epsilon)selfVisual.y+=clamp(dy*alphaY,-maxCorrection,maxCorrection);
-      if(!moving){selfVisual.vx+=((p.vx||0)-selfVisual.vx)*(1-Math.exp(-dt*10));selfVisual.vy+=((p.vy||0)-selfVisual.vy)*(1-Math.exp(-dt*10));}
+      if(!moving){selfVisual.vx=0;selfVisual.vy=0;}
     }
     return{...p,x:selfVisual.x,y:selfVisual.y,vx:selfVisual.vx,vy:selfVisual.vy};
   });
@@ -266,6 +270,7 @@ function updateRoleUI(){
   if(ui.lobbyTeamName)ui.lobbyTeamName.textContent=PROFILE.teamName||'Phòng của đội';
 }
 updateRoleUI();
+if(!IS_OBSERVER&&ui.observerBar)ui.observerBar.hidden=true;
 
 function buildKeypad(){
   ui.keyGrid.innerHTML='';
@@ -318,15 +323,15 @@ async function enterFullscreen(){
 }
 if(ui.fullscreenBtn){ui.fullscreenBtn.textContent=isStandalone()?'Đang toàn màn hình':((document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)?'Toàn màn hình':'Ẩn thanh Safari');ui.fullscreenBtn.addEventListener('click',enterFullscreen)}
 ui.closeInstallGuide?.addEventListener('click',()=>panel(ui.installGuide,false));
-function openRules(){const st=state?.stage||0;ui.rulesTitle.textContent=st?`${RULES[st].title} · ${MAP_NAMES[st]}`:'Luật chơi';ui.rulesContent.innerHTML=ruleHtml(st);panel(ui.rulesModal,true)}
+function openRules(){const st=state?.stage||0;ui.rulesTitle.textContent=st?(MAP_NAMES[st]||'Luật chơi'):'Luật chơi';ui.rulesContent.innerHTML=ruleHtml(st,false);panel(ui.rulesModal,true)}
 ui.rulesBtn?.addEventListener('click',openRules);ui.closeRulesBtn?.addEventListener('click',()=>panel(ui.rulesModal,false));
 ui.restartBtn.addEventListener('click',async()=>{ui.restartBtn.disabled=true;try{await post('/api/restart',{})}catch{}sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');location.replace('./')});
 
 function action(name){
   if(IS_OBSERVER)return;
-  const seq=++inputSeq;
+  const aseq=++actionSeq;
   if(gameSocket?.readyState===WebSocket.OPEN){
-    try{gameSocket.send(JSON.stringify({type:'action',player:PLAYER_ID,action:name,seq}));return}catch{}
+    try{gameSocket.send(JSON.stringify({type:'action',player:PLAYER_ID,action:name,aseq}));return}catch{}
   }
   pendingActions.push(name);flushInput(true);
 }
@@ -348,7 +353,8 @@ addEventListener('keydown',e=>{
     return;
   }
   if(ui.inspectPanel.classList.contains('show')){if(e.code==='Escape'||e.code==='KeyE')panel(ui.inspectPanel,false);return}
-  keys.add(e.code);
+  const moveKey=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code);
+  if(moveKey){keys.add(e.code);if(!e.repeat)flushInput(true);}
   if(e.repeat)return;
   if(e.code==='Space'&&state?.stage===2)action('pass');
   if(e.code==='KeyE'){
@@ -377,7 +383,7 @@ function inputState(){
   };
   const any=movement.up||movement.down||movement.left||movement.right;
   if(!state||state.phase!=='playing')return{up:false,down:false,left:false,right:false};
-  if(movementNeutralLock){if(!any)movementNeutralLock=false;return{up:false,down:false,left:false,right:false}}
+  if(movementNeutralLock)movementNeutralLock=false;
   return movement;
 }
 async function flushInput(force=false){
@@ -439,7 +445,7 @@ function websocketUrl(){
   const base=API_BASE||location.origin,u=new URL(base);
   u.protocol=u.protocol==='https:'?'wss:':'ws:';
   u.pathname=`${u.pathname.replace(/\/+$/,'')}/ws`.replace(/\/+/g,'/');
-  u.search=`session=${encodeURIComponent(SESSION_TOKEN)}&view=${PLAYER_ID}&v=13.6`;
+  u.search=`session=${encodeURIComponent(SESSION_TOKEN)}&view=${PLAYER_ID}&v=13.10`;
   return u.toString();
 }
 function startStateStream(){
@@ -470,6 +476,7 @@ function bindMobileActionButton(button){
   const fire=e=>{
     if(button.hidden||button.disabled)return;
     e.preventDefault();e.stopPropagation();
+    try{button.setPointerCapture(e.pointerId)}catch{}
     button.classList.add('pressed');
     const handler=mobileActionHandlers.get(button);if(handler)handler();
   };
@@ -516,7 +523,7 @@ function handleState(){
     smoothCache.clear();selfVisual=null;commanderBg=null;commanderBgKey='';cam.x=0;cam.y=0;pendingActions.length=0;keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;ui.joystickKnob.style.transform='translate(0,0)';
     panel(ui.inspectPanel,false);panel(ui.keypad,false);panel(ui.installGuide,false);panel(ui.rulesModal,false);codeInput=[];updateCode();lastInteractionHtml='';ui.interaction.textContent='';scheduleResize(true);
   }
-  if(lastStatePhase!==state.phase&&state.phase==='playing')movementNeutralLock=true;
+  if(lastStatePhase!==state.phase&&state.phase==='playing'){movementNeutralLock=false;flushInput(true)}
   const uiSignature=JSON.stringify([state.stage,state.phase,Math.ceil(state.countdown||state.transitionTimer||0),Math.floor(state.totalElapsed||0),state.connectedCount,state.playerCount,state.readyCount,!!state.cheat,state.transitionTo,state.message,state.event?.status,state.connectionPause?.paused,Math.ceil(state.connectionPause?.resumeIn||0),(state.players||[]).map(p=>[p.active,p.displayName,p.online,p.ready,p.escaped])]);
   if(uiSignature!==lastUiSignature){
     lastUiSignature=uiSignature;
@@ -549,7 +556,7 @@ function updateOverlay(){
   const intro=['briefing','countdown','transition'].includes(state.phase);panel(ui.stageIntro,intro);
   if(intro){
     const st=state.phase==='transition'?state.transitionTo:state.stage;
-    ui.stageEyebrow.textContent=`Tầng ${st}`;ui.stageName.textContent=MAP_NAMES[st];ui.stageDescription.innerHTML=ruleHtml(st);
+    ui.stageEyebrow.textContent='';ui.stageEyebrow.hidden=true;ui.stageName.textContent=MAP_NAMES[st];ui.stageDescription.innerHTML=ruleHtml(st,false);
     ui.countdown.textContent=Math.max(1,Math.ceil(state.phase==='transition'?(state.transitionTimer||1):state.countdown||1));
   }
   panel(ui.resetOverlay,state.phase==='resetting');if(state.phase==='resetting'){ui.resetReason.textContent=state.message||'Cả đội phải chơi lại.';ui.resetCount.textContent=Math.max(1,Math.ceil(state.countdown||state.map2?.caughtTimer||1))}
@@ -715,5 +722,5 @@ function render(now){
 }
 function initConnection(){connectionStarted=true;startStateStream()}
 ui.logoutBtn?.addEventListener('click',async()=>{try{await post('/api/auth/logout',{})}catch{}sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');location.replace('./')});
-if(IS_OBSERVER){ui.observerBar.hidden=false;ui.mobileControls.style.display='none';ui.controls.style.display='none';ui.readyBtn.hidden=true;ui.restartBtn.hidden=true;ui.fullscreenBtn.textContent='Toàn màn hình';ui.observerView.innerHTML=DISPLAY_NAMES.map((n,i)=>`<option value="${i+1}">${String(n).replace(/[&<>"]/g,'')}</option>`).join('');ui.observerView.value=String(PLAYER_ID);ui.observerView.addEventListener('change',()=>{PLAYER_ID=Number(ui.observerView.value)||1;updateRoleUI();smoothCache.clear();cam.x=cam.y=0;if(gameSocket?.readyState===WebSocket.OPEN)gameSocket.send(JSON.stringify({type:'view',player:PLAYER_ID}))})}
+if(IS_OBSERVER){ui.observerBar.hidden=false;ui.mobileControls.style.display='none';ui.controls.style.display='none';ui.readyBtn.hidden=true;ui.restartBtn.hidden=true;ui.fullscreenBtn.textContent='Toàn màn hình';ui.observerView.innerHTML=DISPLAY_NAMES.map((n,i)=>`<option value="${i+1}">${String(n).replace(/[&<>"]/g,'')}</option>`).join('');ui.observerView.value=String(PLAYER_ID);ui.observerView.addEventListener('change',()=>{PLAYER_ID=Number(ui.observerView.value)||1;updateRoleUI();smoothCache.clear();cam.x=cam.y=0;if(gameSocket?.readyState===WebSocket.OPEN)gameSocket.send(JSON.stringify({type:'view',player:PLAYER_ID}))})}else if(ui.observerBar){ui.observerBar.hidden=true}
 preload().then(()=>{requestAnimationFrame(render);initConnection()});
