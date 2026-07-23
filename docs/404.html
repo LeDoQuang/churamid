@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b0a08">
-  <link rel="icon" type="image/png" sizes="192x192" href="./assets/a.png?v=13.9">
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/a.png?v=13.12">
   <title>RUNNING CVA - CHURAMID</title>
-  <link rel="stylesheet" href="./login.css?v=13.9">
+  <link rel="stylesheet" href="./login.css?v=13.12">
 </head>
 <body>
   <main class="login-screen">
@@ -17,20 +17,21 @@
     <section class="login-card" aria-label="Đăng nhập phòng chơi">
       <form id="playerForm" autocomplete="on">
         <label for="teamAccount">Mã đội chơi</label>
-        <input id="teamAccount" name="username" autocomplete="username" required>
+        <input id="teamAccount" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
 
         <label for="teamPassword">Mật khẩu</label>
-        <input id="teamPassword" name="password" type="password" autocomplete="current-password">
+        <input id="teamPassword" name="password" type="password" autocomplete="current-password" required>
 
         <label for="playerName">Tên người chơi</label>
         <input id="playerName" name="playerName" autocomplete="name">
 
         <button class="primary" type="submit">Vào phòng chơi</button>
         <p id="message" class="message" aria-live="polite"></p>
+        <button id="serverResetBtn" class="server-reset" type="button">Khôi phục máy chủ mặc định</button>
       </form>
     </section>
   </main>
-  <script src="./client-config.js?v=13.9"></script>
-<script src="./login.js?v=13.9"></script>
+  <script src="./client-config.js?v=13.12"></script>
+<script src="./login.js?v=13.12"></script>
 </body>
 </html>

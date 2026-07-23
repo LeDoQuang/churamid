@@ -5,8 +5,8 @@
   const params = new URLSearchParams(window.location.search);
 
   let value = params.get('server')
-    || DEFAULT_SERVER_URL
     || localStorage.getItem('gameday-server-url')
+    || DEFAULT_SERVER_URL
     || '';
 
   value = String(value).trim().replace(/\/+$/, '');

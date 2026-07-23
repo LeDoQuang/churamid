@@ -1,5 +1,5 @@
 'use strict';
-const GAMEDAY_VERSION='V13.10';
+const GAMEDAY_VERSION='V13.12';
 
 const hashParams=new URLSearchParams(location.hash.slice(1));
 if(hashParams.get('session')){
@@ -14,7 +14,7 @@ const IS_OBSERVER=PROFILE.role==='observer'||PROFILE.role==='admin-observer';
 let PLAYER_ID=Math.max(1,Math.min(4,Number(PROFILE.playerId||1)));
 const API_BASE=window.GAMEDAY_API_BASE||'';
 function apiUrl(path){return API_BASE?`${API_BASE}${path}`:path}
-const CLIENT_TOKEN=SESSION_TOKEN;
+const CLIENT_ID=(globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2)}`).replace(/[^a-zA-Z0-9._:-]/g,'');
 const COLORS = ['#55d68b','#54a8ff','#b878ff','#ff9f55'];
 const NAMES = ['Ranger','Orc','Dark Oracle','Fallen Angel'];
 const DISPLAY_NAMES=Array.from({length:4},(_,i)=>PROFILE.players?.[i]||`Người chơi ${i+1}`);
@@ -33,12 +33,12 @@ const RULES = {
   ]},
   2:{title:'MAP 2',lines:[
     'Quả cầu vàng luôn bị các xác ướp canh giữ nghiêm ngặt, chúng sẽ bám theo kẻ cầm nó.',
-    'Kẻ cầm quả cầu vàng sẽ di chuyển chậm hơn những người còn lại, vì thế 4 người chơi hãy chuyền cầu liên tục để né tránh xác ướp.',
-    'Trên đường đi có nhiều bẫy, 4 người chơi hãy né tránh và chạy thẳng đến cuối con đường - nơi có tượng sư tử và đặt quả cầu vào đó.'
+    'Kẻ cầm quả cầu vàng sẽ di chuyển chậm hơn những người còn lại, vì thế cả đội hãy chuyền cầu liên tục để né tránh xác ướp.',
+    'Trên đường đi có nhiều bẫy, cả đội hãy né tránh và chạy thẳng đến cuối con đường - nơi có tượng sư tử và đặt quả cầu vào đó.'
   ]},
   3:{title:'MAP 3',lines:[
-    '“Sự liên kết là sức mạnh” - chỉ 1 người chơi nhìn thấy toàn bộ bản đồ và vị trí chính xác của các cạm bẫy, cần gạt và nơi cất giữ chìa khóa. Người ấy có khả năng dẫn lối và đánh dấu đường đi cho 3 người chơi còn lại.',
-    '3 người chơi còn lại di chuyển theo hướng dẫn của người chỉ huy, gạt thành công các cần gạt để mở cửa lối vào khu vực chứa chìa khóa.',
+    '“Sự liên kết là sức mạnh” - chỉ 1 người chơi nhìn thấy toàn bộ bản đồ và vị trí chính xác của các cạm bẫy, cần gạt và nơi cất giữ chìa khóa. Người ấy có khả năng dẫn lối và đánh dấu đường đi cho những người chơi còn lại.',
+    'Những người chơi còn lại di chuyển theo hướng dẫn của người chỉ huy, gạt thành công các cần gạt để mở cửa lối vào khu vực chứa chìa khóa.',
     'Công dụng của chìa khóa là mở khóa rương báu, hãy chú ý vào những phía góc bàn đổ.',
     '“Các xác ướp luôn theo sát mọi động tĩnh của bạn, đừng để chúng phát hiện”.'
   ]}
@@ -76,7 +76,7 @@ let cheatBuffer='';
 let movementNeutralLock=true;
 let touchMove={up:false,down:false,left:false,right:false};
 let inputSeq=0,actionSeq=0,lastInputSignature='',lastInputAt=0,inputInFlight=false,inputQueued=false;
-let pollFailures=0,pollTimer=0,stateRequestId=0,lastRevision=-1,connectionStarted=false,gameSocket=null,socketRetryTimer=0,socketFailures=0,usingPollFallback=false,lastSocketMessageAt=0;
+let pollFailures=0,pollTimer=0,stateRequestId=0,lastRevision=-1,lastInstanceId='',lastStageRevision=-1,connectionStarted=false,gameSocket=null,socketRetryTimer=0,socketFailures=0,usingPollFallback=false,lastSocketMessageAt=0;
 let viewportLock=null,viewportResizeTimer=0,lastOrientation=innerWidth>=innerHeight?'landscape':'portrait';
 let selfVisual=null,lastStateReceivedAt=performance.now(),lastUiSignature='',lastInteractionHtml='';
 let commanderBg=null,commanderBgKey='',map1Bg=null;
@@ -306,7 +306,7 @@ async function post(url,data){return fetchJson(apiUrl(url),{method:'POST',header
 ui.readyBtn.addEventListener('click',async()=>{
   if(IS_OBSERVER||!state||state.phase!=='lobby')return;
   ui.readyBtn.disabled=true;ui.readyBtn.textContent='Đang gửi...';
-  const r=await post('/api/ready',{player:PLAYER_ID,ready:true});
+  const r=await post('/api/ready',{player:PLAYER_ID,ready:true,clientId:CLIENT_ID});
   if(r.ok){ready=true;ui.readyBtn.textContent=r.started?'Đang bắt đầu...':'Đã bấm bắt đầu'}
   else{ui.readyBtn.disabled=false;ui.readyBtn.textContent='Bắt đầu';showToast(r.message||'Không thể xác nhận bắt đầu.','bad')}
 });
@@ -325,13 +325,34 @@ if(ui.fullscreenBtn){ui.fullscreenBtn.textContent=isStandalone()?'Đang toàn m�
 ui.closeInstallGuide?.addEventListener('click',()=>panel(ui.installGuide,false));
 function openRules(){const st=state?.stage||0;ui.rulesTitle.textContent=st?(MAP_NAMES[st]||'Luật chơi'):'Luật chơi';ui.rulesContent.innerHTML=ruleHtml(st,false);panel(ui.rulesModal,true)}
 ui.rulesBtn?.addEventListener('click',openRules);ui.closeRulesBtn?.addEventListener('click',()=>panel(ui.rulesModal,false));
+function normalizeServerUrl(value){
+  const v=String(value||'').trim().replace(/\/+$/,'');
+  if(!/^https?:\/\//i.test(v))return'';
+  try{const u=new URL(v);return`${u.protocol}//${u.host}`}catch{return''}
+}
+async function testServerUrl(base){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),4500);
+  try{const r=await fetch(`${base}/health?t=${Date.now()}`,{cache:'no-store',signal:controller.signal});const d=await r.json().catch(()=>({}));return!!(r.ok&&d.ok)}
+  catch{return false}finally{clearTimeout(timer)}
+}
+async function saveServerAndRelogin(base){
+  const ok=await testServerUrl(base);
+  if(!ok){ui.serverStatus.textContent='Không kết nối được /health của server này.';ui.serverStatus.className='server-status bad';return}
+  try{localStorage.setItem('gameday-server-url',base)}catch{}
+  sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');
+  ui.serverStatus.textContent='Đã kết nối. Đang quay lại trang đăng nhập...';ui.serverStatus.className='server-status good';
+  setTimeout(()=>location.replace('./'),250);
+}
+ui.connectionChip?.addEventListener('click',()=>{ui.serverUrlInput.value=API_BASE||location.origin;ui.serverStatus.textContent='';ui.serverStatus.className='server-status';panel(ui.serverSetup,true)});
+ui.connectServerBtn?.addEventListener('click',()=>{const base=normalizeServerUrl(ui.serverUrlInput.value);if(!base){ui.serverStatus.textContent='Địa chỉ phải bắt đầu bằng http:// hoặc https://';ui.serverStatus.className='server-status bad';return}saveServerAndRelogin(base)});
+ui.useSameOriginBtn?.addEventListener('click',async()=>{const base=location.origin;if(!await testServerUrl(base)){ui.serverStatus.textContent='Trang hiện tại không chạy API game. Hãy dùng server.churamidgameday2026.me.';ui.serverStatus.className='server-status bad';return}try{localStorage.removeItem('gameday-server-url')}catch{}sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');location.replace('./')});
 ui.restartBtn.addEventListener('click',async()=>{ui.restartBtn.disabled=true;try{await post('/api/restart',{})}catch{}sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');location.replace('./')});
 
 function action(name){
   if(IS_OBSERVER)return;
   const aseq=++actionSeq;
   if(gameSocket?.readyState===WebSocket.OPEN){
-    try{gameSocket.send(JSON.stringify({type:'action',player:PLAYER_ID,action:name,aseq}));return}catch{}
+    try{gameSocket.send(JSON.stringify({type:'action',player:PLAYER_ID,action:name,aseq,clientId:CLIENT_ID}));return}catch{}
   }
   pendingActions.push(name);flushInput(true);
 }
@@ -371,7 +392,7 @@ addEventListener('keyup',e=>{keys.delete(e.code);flushInput(true)});
 function resetLocalInput(){keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;ui.joystickKnob.style.transform='translate(0,0)';flushInput(true)}
 addEventListener('blur',resetLocalInput);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetLocalInput();if(usingPollFallback){clearTimeout(pollTimer);scheduleStatePoll(document.hidden?500:20)}});
-addEventListener('pagehide',()=>{try{if(!IS_OBSERVER)fetch(apiUrl('/api/disconnect'),{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':SESSION_TOKEN},body:'{}',keepalive:true,cache:'no-store'}).catch(()=>{})}catch{}});
+addEventListener('pagehide',()=>{try{if(!IS_OBSERVER)fetch(apiUrl('/api/disconnect'),{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':SESSION_TOKEN},body:JSON.stringify({clientId:CLIENT_ID}),keepalive:true,cache:'no-store'}).catch(()=>{})}catch{}});
 
 function inputState(){
   if(IS_OBSERVER)return{up:false,down:false,left:false,right:false};
@@ -392,11 +413,11 @@ async function flushInput(force=false){
   if(!force&&!actions.length&&signature===lastInputSignature&&now-lastInputAt<420)return;
   lastInputSignature=signature;lastInputAt=now;const seq=++inputSeq;
   if(gameSocket?.readyState===WebSocket.OPEN){
-    try{gameSocket.send(JSON.stringify({type:'input',player:PLAYER_ID,input,actions,seq}));return}catch{}
+    try{gameSocket.send(JSON.stringify({type:'input',player:PLAYER_ID,input,actions,seq,clientId:CLIENT_ID}));return}catch{}
   }
   if(inputInFlight){pendingActions.unshift(...actions);inputQueued=true;return}
   inputInFlight=true;
-  await post('/api/input',{player:PLAYER_ID,input,actions,seq});
+  await post('/api/input',{player:PLAYER_ID,input,actions,seq,clientId:CLIENT_ID});
   inputInFlight=false;
   if(inputQueued||pendingActions.length){inputQueued=false;flushInput(true)}
 }
@@ -407,8 +428,12 @@ function applyStateResult(result){
   if(result.httpStatus===409){setConnection('warn','Vị trí đang được dùng');ui.waitingText.textContent=result.message||'Vị trí này đang mở ở thiết bị khác.';return false}
   if(Number.isFinite(result.revision)){
     pollFailures=0;socketFailures=0;setConnection('ok','Trực tuyến');lastStateReceivedAt=performance.now();
-    if(result.revision>=lastRevision){
-      if(state&&result.stage===state.stage){
+    const instanceChanged=!!result.instanceId&&result.instanceId!==lastInstanceId;
+    const incomingStageRevision=Number(result.stageRevision||0);
+    const newerStage=instanceChanged||incomingStageRevision>lastStageRevision;
+    const sameStage=!instanceChanged&&incomingStageRevision===lastStageRevision;
+    if(newerStage||(sameStage&&result.revision>=lastRevision)){
+      if(state&&!instanceChanged&&incomingStageRevision===lastStageRevision&&result.stage===state.stage){
         if(result.map1&&!result.map1.cats)result.map1.cats=state.map1?.cats||[];
         if(result.map2&&!result.map2.muds)result.map2.muds=state.map2?.muds||[];
         if(result.map3){
@@ -417,7 +442,8 @@ function applyStateResult(result){
           if(!result.map3.muds)result.map3.muds=state.map3?.muds||[];
         }
       }
-      lastRevision=result.revision;state=result;handleState();
+      if(instanceChanged){selfVisual=null;smoothCache.clear();}
+      lastInstanceId=result.instanceId||lastInstanceId;lastStageRevision=incomingStageRevision;lastRevision=result.revision;state=result;handleState();
     }
     return true;
   }
@@ -445,13 +471,13 @@ function websocketUrl(){
   const base=API_BASE||location.origin,u=new URL(base);
   u.protocol=u.protocol==='https:'?'wss:':'ws:';
   u.pathname=`${u.pathname.replace(/\/+$/,'')}/ws`.replace(/\/+/g,'/');
-  u.search=`session=${encodeURIComponent(SESSION_TOKEN)}&view=${PLAYER_ID}&v=13.10`;
+  u.search=`view=${PLAYER_ID}&client=${encodeURIComponent(CLIENT_ID)}&v=13.12`;
   return u.toString();
 }
 function startStateStream(){
   closeGameSocket();clearTimeout(pollTimer);usingPollFallback=false;
   if(!('WebSocket'in window)){startPollFallback();return}
-  let socket;try{socket=new WebSocket(websocketUrl())}catch{startPollFallback();return}
+  let socket;try{socket=new WebSocket(websocketUrl(),['gameday-v13',SESSION_TOKEN])}catch{startPollFallback();return}
   gameSocket=socket;
   const connectTimer=setTimeout(()=>{if(socket.readyState!==WebSocket.OPEN)try{socket.close()}catch{}},5500);
   socket.onopen=()=>{clearTimeout(connectTimer);socketFailures=0;usingPollFallback=false;clearTimeout(pollTimer);setConnection('ok','Trực tuyến');flushInput(true)};
@@ -462,7 +488,7 @@ function startStateStream(){
   socket.onerror=()=>{};
   socket.onclose=()=>{
     clearTimeout(connectTimer);if(gameSocket!==socket)return;gameSocket=null;socketFailures++;
-    setConnection('warn',socketFailures>2?'Đang kết nối lại':'Mạng chậm');
+    resetLocalInput();setConnection('warn',socketFailures>2?'Đang kết nối lại':'Mạng chậm');
     if(socketFailures>=3){startPollFallback();return}
     socketRetryTimer=setTimeout(startStateStream,Math.min(2600,350*Math.pow(1.7,socketFailures)));
   };
@@ -517,7 +543,7 @@ function handleState(){
   if(!state)return;
   if(state.team){PROFILE.teamName=state.team.name;PROFILE.players=state.team.players;state.team.players?.forEach((n,i)=>{if(n)DISPLAY_NAMES[i]=n});if(IS_OBSERVER&&ui.observerView){const current=PLAYER_ID;ui.observerView.innerHTML=(state.players||[]).filter(p=>p.active).map(p=>`<option value="${p.id}">${String(p.displayName||`Người chơi ${p.id}`).replace(/[&<>"]/g,'')}</option>`).join('');if([...ui.observerView.options].some(o=>Number(o.value)===current))ui.observerView.value=String(current);else if(ui.observerView.options.length){PLAYER_ID=Number(ui.observerView.options[0].value);ui.observerView.value=String(PLAYER_ID)}}if(ui.teamNameText)ui.teamNameText.textContent=state.team.name;if(ui.lobbyTeamName)ui.lobbyTeamName.textContent=state.team.name}
   if(!IS_OBSERVER&&state.self&&state.self!==PLAYER_ID){PLAYER_ID=Number(state.self);const sp=state.players?.[PLAYER_ID-1];PROFILE.playerId=PLAYER_ID;PROFILE.playerName=sp?.displayName||PROFILE.playerName;PROFILE.players=state.team?.players||PROFILE.players;sessionStorage.setItem('gameday-profile',JSON.stringify(PROFILE));smoothCache.clear();selfVisual=null;cam.x=cam.y=0;updateRoleUI();showToast(`Vai trò của bạn đã được cập nhật thành vị trí ${PLAYER_ID}.`,'good')}
-  const eventStatus=state.event?.status||'running';if(ui.eventOverlay){const conn=state.connectionPause||{},connectionBlocked=!!conn.paused&&state.phase!=='done',eventBlocked=(eventStatus==='paused'||eventStatus==='ended')&&state.phase!=='done',blocked=connectionBlocked||eventBlocked;panel(ui.eventOverlay,blocked);ui.eventOverlay.classList.toggle('connection-wait',connectionBlocked);if(blocked){let content;if(connectionBlocked)content=conn.resumeIn>0?['Đã đủ thành viên','Trò chơi tiếp tục sau '+Math.max(1,Math.ceil(conn.resumeIn))+' giây.']:['Đang chờ kết nối lại',`${conn.online||0}/${conn.needed||3} thành viên đang trực tuyến. Tiến độ và thời gian của đội đã được tạm giữ.`];else content=eventStatus==='paused'?['Sự kiện tạm dừng','Ban tổ chức đang tạm dừng toàn bộ phòng thi.']:['Sự kiện đã kết thúc','Phòng thi đã được khóa bởi ban tổ chức.'];ui.eventOverlayTitle.textContent=content[0];ui.eventOverlayText.textContent=content[1]}}
+  const eventStatus=state.event?.status||'running';if(ui.eventOverlay){const conn=state.connectionPause||{},connectionBlocked=!!conn.paused&&state.phase!=='done',eventBlocked=eventStatus!=='running'&&state.phase!=='lobby'&&state.phase!=='done',blocked=connectionBlocked||eventBlocked;panel(ui.eventOverlay,blocked);ui.eventOverlay.classList.toggle('connection-wait',connectionBlocked);if(blocked){let content;if(connectionBlocked)content=conn.resumeIn>0?['Đã đủ thành viên','Trò chơi tiếp tục sau '+Math.max(1,Math.ceil(conn.resumeIn))+' giây.']:['Đang chờ kết nối lại',`${conn.online||0}/${conn.needed||3} thành viên đang trực tuyến. Tiến độ và thời gian của đội đã được tạm giữ.`];else if(eventStatus==='paused')content=['Sự kiện tạm dừng','Ban tổ chức đang tạm dừng toàn bộ phòng thi.'];else if(eventStatus==='ended')content=['Sự kiện đã kết thúc','Phòng thi đã được khóa bởi ban tổ chức.'];else content=['Đang chờ ban tổ chức','Sự kiện chưa được mở. Tiến độ của đội đang được giữ nguyên.'];ui.eventOverlayTitle.textContent=content[0];ui.eventOverlayText.textContent=content[1]}}
   const stageChanged=lastStage!==state.stage;
   if(stageChanged){
     smoothCache.clear();selfVisual=null;commanderBg=null;commanderBgKey='';cam.x=0;cam.y=0;pendingActions.length=0;keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;ui.joystickKnob.style.transform='translate(0,0)';
@@ -710,7 +736,7 @@ function drawExplorer(m,self){
   const ents=[...renderMap3Golems.map(g=>({y:g.y,type:'g',v:g})),...renderPlayers.filter(p=>p.active&&p.id!==1).map(p=>({y:p.y,type:'p',v:p}))].sort((a,b)=>a.y-b.y);ents.forEach(e=>e.type==='g'?drawGolem(e.v,e.v.x*tile-cam.x,e.v.y*tile-cam.y,1):drawPlayer(e.v,e.v.x*tile-cam.x,e.v.y*tile-cam.y,1));
   // vùng nhìn hẹp: phủ gradient tối, giữ nguyên hình ảnh ở tâm.
   if(!state.cheat){const px=self.x*tile-cam.x,py=self.y*tile-cam.y,r=4.45*tile;ctx.save();const g=ctx.createRadialGradient(px,py,r*.32,px,py,r);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.62,'rgba(0,0,0,.12)');g.addColorStop(.84,'rgba(0,0,0,.72)');g.addColorStop(1,'rgba(0,0,0,.97)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.restore()}
-  let prompt='',mobile=isMobileView();m.leverCells.forEach((c,i)=>{if(Math.hypot(self.x-(c.x+.5),self.y-(c.y+.5))<1.1)prompt=mobile?`<b>${m.leverOn[i]?'Trả':'Gạt'} cần ${i?'B':'A'}</b>`:`<kbd>E</kbd> ${m.leverOn[i]?'Trả':'Gạt'} cần ${i?'B':'A'}`});if(m.keyTaken&&!m.chestOpen&&Math.hypot(self.x-37.5,self.y-23.5)<1.8)prompt=mobile?'<b>Mở rương kho báu</b>':'<kbd>E</kbd> Mở rương kho báu';setInteraction(prompt);
+  let prompt='',mobile=isMobileView();m.leverCells.forEach((c,i)=>{if(!m.leverOn[i]&&Math.hypot(self.x-(c.x+.5),self.y-(c.y+.5))<1.1)prompt=mobile?`<b>Gạt cần ${i?'B':'A'}</b>`:`<kbd>E</kbd> Gạt cần ${i?'B':'A'}`});if(m.keyTaken&&!m.chestOpen&&Math.hypot(self.x-37.5,self.y-23.5)<1.8)prompt=mobile?'<b>Mở rương kho báu</b>':'<kbd>E</kbd> Mở rương kho báu';setInteraction(prompt);
 }
 
 function render(now){
@@ -723,4 +749,4 @@ function render(now){
 function initConnection(){connectionStarted=true;startStateStream()}
 ui.logoutBtn?.addEventListener('click',async()=>{try{await post('/api/auth/logout',{})}catch{}sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');location.replace('./')});
 if(IS_OBSERVER){ui.observerBar.hidden=false;ui.mobileControls.style.display='none';ui.controls.style.display='none';ui.readyBtn.hidden=true;ui.restartBtn.hidden=true;ui.fullscreenBtn.textContent='Toàn màn hình';ui.observerView.innerHTML=DISPLAY_NAMES.map((n,i)=>`<option value="${i+1}">${String(n).replace(/[&<>"]/g,'')}</option>`).join('');ui.observerView.value=String(PLAYER_ID);ui.observerView.addEventListener('change',()=>{PLAYER_ID=Number(ui.observerView.value)||1;updateRoleUI();smoothCache.clear();cam.x=cam.y=0;if(gameSocket?.readyState===WebSocket.OPEN)gameSocket.send(JSON.stringify({type:'view',player:PLAYER_ID}))})}else if(ui.observerBar){ui.observerBar.hidden=true}
-preload().then(()=>{requestAnimationFrame(render);initConnection()});
+requestAnimationFrame(render);initConnection();preload().then(()=>{map1Bg=null;commanderBg=null;commanderBgKey='';});
