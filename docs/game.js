@@ -1,5 +1,5 @@
 'use strict';
-const GAMEDAY_VERSION='V13.12';
+const GAMEDAY_VERSION='V13.13';
 
 const hashParams=new URLSearchParams(location.hash.slice(1));
 if(hashParams.get('session')){
@@ -252,12 +252,31 @@ function preload(){return Promise.all(Object.entries(SRC).map(([k,src])=>new Pro
 function fmt(s){s=Math.max(0,Math.floor(s||0));return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function showToast(text,kind=''){clearTimeout(toastTimer);ui.toast.textContent=text;ui.toast.className=`toast show ${kind}`;toastTimer=setTimeout(()=>ui.toast.className='toast',1800)}
-function panel(el,on){el.classList.toggle('show',on);el.setAttribute?.('aria-hidden',String(!on))}
+function panel(el,on){if(!el)return;el.classList.toggle('show',on);el.setAttribute?.('aria-hidden',String(!on))}
+function bindPress(el,handler){
+  if(!el)return;
+  let lastPointerAt=-Infinity;
+  el.addEventListener('pointerdown',e=>{
+    if(e.isPrimary===false)return;
+    if(typeof e.button==='number'&&e.button!==0)return;
+    lastPointerAt=performance.now();
+    e.preventDefault();
+    e.stopPropagation();
+    handler(e);
+  },{passive:false});
+  el.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    if(performance.now()-lastPointerAt>700)handler(e);
+  },{passive:false});
+}
 function setInteraction(html=''){if(html===lastInteractionHtml)return;lastInteractionHtml=html;ui.interaction.innerHTML=html}
-document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>panel(document.getElementById(b.dataset.close),false)));
+document.querySelectorAll('[data-close]').forEach(b=>bindPress(b,()=>panel(document.getElementById(b.dataset.close),false)));
 ['gesturestart','gesturechange','gestureend'].forEach(name=>document.addEventListener(name,e=>e.preventDefault(),{passive:false}));
 document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
-document.addEventListener('touchmove',e=>{if(e.target.closest?.('#app')&&!e.target.closest?.('.card,.install-card,.inspect-panel,.keypad-card'))e.preventDefault()},{passive:false});
+document.addEventListener('touchmove',e=>{
+  if(e.target.closest?.('#app')&&!e.target.closest?.('.card,.install-card,.inspect-panel,.keypad-card,.rules-card'))e.preventDefault();
+},{passive:false});
 
 function updateRoleUI(){
   if(ui.roleDot)ui.roleDot.style.background=COLORS[PLAYER_ID-1];
@@ -323,8 +342,17 @@ async function enterFullscreen(){
 }
 if(ui.fullscreenBtn){ui.fullscreenBtn.textContent=isStandalone()?'Đang toàn màn hình':((document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)?'Toàn màn hình':'Ẩn thanh Safari');ui.fullscreenBtn.addEventListener('click',enterFullscreen)}
 ui.closeInstallGuide?.addEventListener('click',()=>panel(ui.installGuide,false));
-function openRules(){const st=state?.stage||0;ui.rulesTitle.textContent=st?(MAP_NAMES[st]||'Luật chơi'):'Luật chơi';ui.rulesContent.innerHTML=ruleHtml(st,false);panel(ui.rulesModal,true)}
-ui.rulesBtn?.addEventListener('click',openRules);ui.closeRulesBtn?.addEventListener('click',()=>panel(ui.rulesModal,false));
+function openRules(){
+  if(!ui.rulesModal||!ui.rulesTitle||!ui.rulesContent)return;
+  const st=state?.stage||0;
+  ui.rulesTitle.textContent=st?(MAP_NAMES[st]||'Luật chơi'):'Luật chơi';
+  ui.rulesContent.innerHTML=ruleHtml(st,false);
+  const card=ui.rulesModal.querySelector('.rules-card');
+  if(card)card.scrollTop=0;
+  panel(ui.rulesModal,true);
+}
+bindPress(ui.rulesBtn,openRules);
+bindPress(ui.closeRulesBtn,()=>panel(ui.rulesModal,false));
 function normalizeServerUrl(value){
   const v=String(value||'').trim().replace(/\/+$/,'');
   if(!/^https?:\/\//i.test(v))return'';
