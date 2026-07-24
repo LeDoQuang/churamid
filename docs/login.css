@@ -470,16 +470,3 @@ input:focus{
     transform:translateY(-52px);
   }
 }
-.server-reset{
-  display:block;
-  width:100%;
-  margin:10px 0 0;
-  padding:8px 10px;
-  border:0;
-  background:transparent;
-  color:rgba(255,244,220,.78);
-  font:700 12px inherit;
-  text-decoration:underline;
-  cursor:pointer;
-}
-.server-reset:hover{color:#fff8df}

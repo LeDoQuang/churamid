@@ -1,14 +1,9 @@
 'use strict';
-const LOGIN_VERSION='13.12';
+const LOGIN_VERSION='13.9';
 const $=s=>document.querySelector(s);
 const message=$('#message');
 const API_BASE=window.GAMEDAY_API_BASE||'';
 const apiUrl=path=>API_BASE?`${API_BASE}${path}`:path;
-$('#serverResetBtn')?.addEventListener('click',()=>{
-  try{localStorage.removeItem('gameday-server-url')}catch{}
-  sessionStorage.removeItem('gameday-session');sessionStorage.removeItem('gameday-profile');
-  location.replace('./');
-});
 if(!API_BASE&&location.hostname.endsWith('.github.io'))show('Link này chưa có địa chỉ server. Hãy mở link do ban tổ chức cung cấp.');
 function show(text,good=false){message.textContent=text||'';message.className=`message${good?' good':''}`}
 async function api(path,options={}){

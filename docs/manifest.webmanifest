@@ -1,8 +1,8 @@
 {
   "name": "RUNNING CVA - CHURAMID",
   "short_name": "CHURAMID",
-  "description": "Trò chơi phối hợp 3–4 người khám phá kim tự tháp.",
-  "start_url": "./",
+  "description": "Trò chơi giải đố bốn người khám phá kim tự tháp.",
+  "start_url": "./?player=1",
   "scope": "./",
   "display": "standalone",
   "orientation": "landscape",

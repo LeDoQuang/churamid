@@ -10,9 +10,9 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./apple-touch-icon.png">
   <meta name="theme-color" content="#11100d">
-  <link rel="icon" type="image/png" sizes="192x192" href="./assets/a.png?v=13.12">
+  <link rel="icon" type="image/png" sizes="192x192" href="./assets/a.png?v=13.9">
   <title>RUNNING CVA - CHURAMID</title>
-  <link rel="stylesheet" href="./game.css?v=13.12">
+  <link rel="stylesheet" href="./game.css?v=13.10">
 </head>
 <body>
 <main id="app" class="app">
@@ -23,7 +23,7 @@
       <span id="teamNameText">IDEA GAMEDAY 2026</span>
       <strong id="mapTitle">Khám phá Kim tự tháp</strong>
     </div>
-    <div class="objective" id="objective"><small>Mục tiêu</small><b>Chờ đủ thành viên</b></div>
+    <div class="objective" id="objective"><small>Mục tiêu</small><b>Chờ đủ bốn thành viên</b></div>
     <div class="top-stats">
       <div class="chip player-chip"><span id="playerNameText">Người chơi</span></div>
       <div class="chip"><span>Đội</span><b id="onlineText">0/4</b></div>
@@ -67,15 +67,15 @@
     <article class="card server-card">
       <div class="eyebrow">Kết nối máy chủ sự kiện</div>
       <h2>Nhập địa chỉ server</h2>
-      <p class="lead">Dán địa chỉ HTTPS của máy chủ game. Mặc định: <code>https://server.churamidgameday2026.me</code></p>
+      <p class="lead">Dán đường dẫn HTTPS do Cloudflare Tunnel cung cấp. Ví dụ: <code>https://ten-tunnel.trycloudflare.com</code></p>
       <label class="server-label" for="serverUrlInput">Địa chỉ server</label>
-      <input id="serverUrlInput" class="server-input" type="url" inputmode="url" autocomplete="url" placeholder="https://server.churamidgameday2026.me">
+      <input id="serverUrlInput" class="server-input" type="url" inputmode="url" autocomplete="url" placeholder="https://...trycloudflare.com">
       <div class="server-actions">
         <button id="connectServerBtn" type="button" class="primary">Kiểm tra và kết nối</button>
-        <button id="useSameOriginBtn" type="button" class="secondary">Dùng server cùng trang (local)</button>
+        <button id="useSameOriginBtn" type="button" class="secondary">Dùng server cùng trang</button>
       </div>
       <p id="serverStatus" class="server-status" aria-live="polite"></p>
-      <p class="waiting">Đổi server sẽ đăng xuất phiên hiện tại và quay lại trang đăng nhập. Địa chỉ chỉ được lưu trên thiết bị này.</p>
+      <p class="waiting">Địa chỉ này được lưu riêng trên thiết bị hiện tại. Có thể bấm trạng thái “Trực tuyến” trên thanh trên cùng để đổi lại.</p>
     </article>
   </section>
 
@@ -175,7 +175,7 @@
     </article>
   </section>
 </main>
-<script src="./client-config.js?v=13.12"></script>
-<script src="./game.js?v=13.12"></script>
+<script src="./client-config.js?v=13.10"></script>
+<script src="./game.js?v=13.10"></script>
 </body>
 </html>
