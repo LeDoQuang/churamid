@@ -1,5 +1,5 @@
 'use strict';
-const GAMEDAY_VERSION='V13.13';
+const GAMEDAY_VERSION='V13.15';
 
 const hashParams=new URLSearchParams(location.hash.slice(1));
 if(hashParams.get('session')){
@@ -76,7 +76,6 @@ let cheatBuffer='';
 let movementNeutralLock=true;
 let touchMove={up:false,down:false,left:false,right:false};
 let inputSeq=0,actionSeq=0,lastInputSignature='',lastInputAt=0,inputInFlight=false,inputQueued=false;
-let lastSentMoving=false,lastNeutralSeq=0,neutralHoldUntil=0;
 let pollFailures=0,pollTimer=0,stateRequestId=0,lastRevision=-1,lastInstanceId='',lastStageRevision=-1,connectionStarted=false,gameSocket=null,socketRetryTimer=0,socketFailures=0,usingPollFallback=false,lastSocketMessageAt=0;
 let viewportLock=null,viewportResizeTimer=0,lastOrientation=innerWidth>=innerHeight?'landscape':'portrait';
 let selfVisual=null,lastStateReceivedAt=performance.now(),lastUiSignature='',lastInteractionHtml='';
@@ -202,25 +201,18 @@ function updateVisuals(dt){
       selfVisual.x=serverX;selfVisual.y=serverY;selfVisual.vx=p.vx||0;selfVisual.vy=p.vy||0;
     }else{
       const moving=d.moving&&state.phase==='playing'&&!movementNeutralLock;
-      const ackSeq=Math.max(0,Number(p.ackSeq)||0);
-      const waitingNeutralAck=!moving&&lastNeutralSeq>0&&ackSeq<lastNeutralSeq;
-      const stopGrace=!moving&&performance.now()<neutralHoldUntil;
-
-      // Khi vừa nhả phím/joystick, các state cũ vẫn có thể mang vị trí lúc còn di chuyển.
-      // Giữ nhân vật đứng yên cho đến khi server xác nhận gói neutral để tránh trượt rồi giật lại.
-      if(waitingNeutralAck||stopGrace){
-        selfVisual.vx=0;selfVisual.vy=0;
-      }else{
-        // Khi đang đi vẫn hiệu chỉnh nhẹ. Khi đã dừng, hiệu chỉnh chậm hơn để không tạo cảm giác quán tính.
-        const rateX=selfVisual.blockedX?12:(moving?2.8:5.2);
-        const rateY=selfVisual.blockedY?12:(moving?2.8:5.2);
-        const alphaX=1-Math.exp(-dt*rateX),alphaY=1-Math.exp(-dt*rateY);
-        const maxCorrection=stage3?(moving?0.055:0.022):(moving?5.5:2.1);
-        const epsilon=stage3?(moving?0.004:0.025):(moving?0.2:2);
-        if(Math.abs(dx)>epsilon)selfVisual.x+=clamp(dx*alphaX,-maxCorrection,maxCorrection);
-        if(Math.abs(dy)>epsilon)selfVisual.y+=clamp(dy*alphaY,-maxCorrection,maxCorrection);
-        if(!moving){selfVisual.vx=0;selfVisual.vy=0;}
-      }
+      // Luôn hiệu chỉnh liên tục theo server; không khóa vị trí để chờ ACK vì việc
+      // đứng hình rồi bù sai số ở gói sau tạo cảm giác khựng và giật ngược.
+      // Khi đang di chuyển: hiệu chỉnh nhẹ để giữ phản hồi tức thì.
+      // Khi vừa dừng: hiệu chỉnh vừa phải, tránh kéo mạnh như bản cũ.
+      const rateX=selfVisual.blockedX?12:(moving?2.8:8);
+      const rateY=selfVisual.blockedY?12:(moving?2.8:8);
+      const alphaX=1-Math.exp(-dt*rateX),alphaY=1-Math.exp(-dt*rateY);
+      const maxCorrection=stage3?(moving?0.055:0.035):(moving?5.5:3.2);
+      const epsilon=stage3?0.004:0.2;
+      if(Math.abs(dx)>epsilon)selfVisual.x+=clamp(dx*alphaX,-maxCorrection,maxCorrection);
+      if(Math.abs(dy)>epsilon)selfVisual.y+=clamp(dy*alphaY,-maxCorrection,maxCorrection);
+      if(!moving){selfVisual.vx=0;selfVisual.vy=0;}
     }
     return{...p,x:selfVisual.x,y:selfVisual.y,vx:selfVisual.vx,vy:selfVisual.vy};
   });
@@ -428,7 +420,7 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{keys.delete(e.code);flushInput(true)});
 
-function resetLocalInput(){keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;lastSentMoving=false;neutralHoldUntil=performance.now()+120;ui.joystickKnob.style.transform='translate(0,0)';flushInput(true)}
+function resetLocalInput(){keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;ui.joystickKnob.style.transform='translate(0,0)';flushInput(true)}
 addEventListener('blur',resetLocalInput);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resetLocalInput();if(usingPollFallback){clearTimeout(pollTimer);scheduleStatePoll(document.hidden?500:20)}});
 addEventListener('pagehide',()=>{try{if(!IS_OBSERVER)fetch(apiUrl('/api/disconnect'),{method:'POST',headers:{'Content-Type':'application/json','X-Session-Token':SESSION_TOKEN},body:JSON.stringify({clientId:CLIENT_ID}),keepalive:true,cache:'no-store'}).catch(()=>{})}catch{}});
@@ -451,9 +443,6 @@ async function flushInput(force=false){
   const input=inputState(),actions=pendingActions.splice(0),signature=JSON.stringify(input),now=Date.now();
   if(!force&&!actions.length&&signature===lastInputSignature&&now-lastInputAt<420)return;
   lastInputSignature=signature;lastInputAt=now;const seq=++inputSeq;
-  const moving=!!(input.up||input.down||input.left||input.right);
-  if(lastSentMoving&&!moving){lastNeutralSeq=seq;neutralHoldUntil=performance.now()+180;}
-  lastSentMoving=moving;
   if(gameSocket?.readyState===WebSocket.OPEN){
     try{gameSocket.send(JSON.stringify({type:'input',player:PLAYER_ID,input,actions,seq,clientId:CLIENT_ID}));return}catch{}
   }
@@ -513,7 +502,7 @@ function websocketUrl(){
   const base=API_BASE||location.origin,u=new URL(base);
   u.protocol=u.protocol==='https:'?'wss:':'ws:';
   u.pathname=`${u.pathname.replace(/\/+$/,'')}/ws`.replace(/\/+/g,'/');
-  u.search=`view=${PLAYER_ID}&client=${encodeURIComponent(CLIENT_ID)}&v=13.14`;
+  u.search=`view=${PLAYER_ID}&client=${encodeURIComponent(CLIENT_ID)}&v=13.15`; 
   return u.toString();
 }
 function startStateStream(){
@@ -588,7 +577,7 @@ function handleState(){
   const eventStatus=state.event?.status||'running';if(ui.eventOverlay){const conn=state.connectionPause||{},connectionBlocked=!!conn.paused&&state.phase!=='done',eventBlocked=eventStatus!=='running'&&state.phase!=='lobby'&&state.phase!=='done',blocked=connectionBlocked||eventBlocked;panel(ui.eventOverlay,blocked);ui.eventOverlay.classList.toggle('connection-wait',connectionBlocked);if(blocked){let content;if(connectionBlocked)content=conn.resumeIn>0?['Đã đủ thành viên','Trò chơi tiếp tục sau '+Math.max(1,Math.ceil(conn.resumeIn))+' giây.']:['Đang chờ kết nối lại',`${conn.online||0}/${conn.needed||3} thành viên đang trực tuyến. Tiến độ và thời gian của đội đã được tạm giữ.`];else if(eventStatus==='paused')content=['Sự kiện tạm dừng','Ban tổ chức đang tạm dừng toàn bộ phòng thi.'];else if(eventStatus==='ended')content=['Sự kiện đã kết thúc','Phòng thi đã được khóa bởi ban tổ chức.'];else content=['Đang chờ ban tổ chức','Sự kiện chưa được mở. Tiến độ của đội đang được giữ nguyên.'];ui.eventOverlayTitle.textContent=content[0];ui.eventOverlayText.textContent=content[1]}}
   const stageChanged=lastStage!==state.stage;
   if(stageChanged){
-    smoothCache.clear();selfVisual=null;commanderBg=null;commanderBgKey='';cam.x=0;cam.y=0;pendingActions.length=0;keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;lastSentMoving=false;lastNeutralSeq=0;neutralHoldUntil=0;ui.joystickKnob.style.transform='translate(0,0)';
+    smoothCache.clear();selfVisual=null;commanderBg=null;commanderBgKey='';cam.x=0;cam.y=0;pendingActions.length=0;keys.clear();touchMove={up:false,down:false,left:false,right:false};movementNeutralLock=true;ui.joystickKnob.style.transform='translate(0,0)';
     panel(ui.inspectPanel,false);panel(ui.keypad,false);panel(ui.installGuide,false);panel(ui.rulesModal,false);codeInput=[];updateCode();lastInteractionHtml='';ui.interaction.textContent='';scheduleResize(true);
   }
   if(lastStatePhase!==state.phase&&state.phase==='playing'){movementNeutralLock=false;flushInput(true)}
