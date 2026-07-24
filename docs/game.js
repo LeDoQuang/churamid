@@ -1,5 +1,5 @@
 'use strict';
-const GAMEDAY_VERSION='V13.15';
+const GAMEDAY_VERSION='V13.12';
 
 const hashParams=new URLSearchParams(location.hash.slice(1));
 if(hashParams.get('session')){
@@ -201,15 +201,12 @@ function updateVisuals(dt){
       selfVisual.x=serverX;selfVisual.y=serverY;selfVisual.vx=p.vx||0;selfVisual.vy=p.vy||0;
     }else{
       const moving=d.moving&&state.phase==='playing'&&!movementNeutralLock;
-      // Luôn hiệu chỉnh liên tục theo server; không khóa vị trí để chờ ACK vì việc
-      // đứng hình rồi bù sai số ở gói sau tạo cảm giác khựng và giật ngược.
-      // Khi đang di chuyển: hiệu chỉnh nhẹ để giữ phản hồi tức thì.
-      // Khi vừa dừng: hiệu chỉnh vừa phải, tránh kéo mạnh như bản cũ.
-      const rateX=selfVisual.blockedX?12:(moving?2.8:8);
-      const rateY=selfVisual.blockedY?12:(moving?2.8:8);
+      // Hiệu chỉnh dần và giới hạn số pixel mỗi frame để gói mạng đến trễ
+      // không kéo nhân vật giật đùng một lần. Khi chạm tường vẫn bám server nhanh hơn.
+      const rateX=selfVisual.blockedX?12:(moving?2.8:14);
+      const rateY=selfVisual.blockedY?12:(moving?2.8:14);
       const alphaX=1-Math.exp(-dt*rateX),alphaY=1-Math.exp(-dt*rateY);
-      const maxCorrection=stage3?(moving?0.055:0.035):(moving?5.5:3.2);
-      const epsilon=stage3?0.004:0.2;
+      const maxCorrection=stage3 ? 0.055 : 5.5,epsilon=stage3 ? 0.004 : 0.2;
       if(Math.abs(dx)>epsilon)selfVisual.x+=clamp(dx*alphaX,-maxCorrection,maxCorrection);
       if(Math.abs(dy)>epsilon)selfVisual.y+=clamp(dy*alphaY,-maxCorrection,maxCorrection);
       if(!moving){selfVisual.vx=0;selfVisual.vy=0;}
@@ -255,31 +252,12 @@ function preload(){return Promise.all(Object.entries(SRC).map(([k,src])=>new Pro
 function fmt(s){s=Math.max(0,Math.floor(s||0));return`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
 function showToast(text,kind=''){clearTimeout(toastTimer);ui.toast.textContent=text;ui.toast.className=`toast show ${kind}`;toastTimer=setTimeout(()=>ui.toast.className='toast',1800)}
-function panel(el,on){if(!el)return;el.classList.toggle('show',on);el.setAttribute?.('aria-hidden',String(!on))}
-function bindPress(el,handler){
-  if(!el)return;
-  let lastPointerAt=-Infinity;
-  el.addEventListener('pointerdown',e=>{
-    if(e.isPrimary===false)return;
-    if(typeof e.button==='number'&&e.button!==0)return;
-    lastPointerAt=performance.now();
-    e.preventDefault();
-    e.stopPropagation();
-    handler(e);
-  },{passive:false});
-  el.addEventListener('click',e=>{
-    e.preventDefault();
-    e.stopPropagation();
-    if(performance.now()-lastPointerAt>700)handler(e);
-  },{passive:false});
-}
+function panel(el,on){el.classList.toggle('show',on);el.setAttribute?.('aria-hidden',String(!on))}
 function setInteraction(html=''){if(html===lastInteractionHtml)return;lastInteractionHtml=html;ui.interaction.innerHTML=html}
-document.querySelectorAll('[data-close]').forEach(b=>bindPress(b,()=>panel(document.getElementById(b.dataset.close),false)));
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>panel(document.getElementById(b.dataset.close),false)));
 ['gesturestart','gesturechange','gestureend'].forEach(name=>document.addEventListener(name,e=>e.preventDefault(),{passive:false}));
 document.addEventListener('dblclick',e=>e.preventDefault(),{passive:false});
-document.addEventListener('touchmove',e=>{
-  if(e.target.closest?.('#app')&&!e.target.closest?.('.card,.install-card,.inspect-panel,.keypad-card,.rules-card'))e.preventDefault();
-},{passive:false});
+document.addEventListener('touchmove',e=>{if(e.target.closest?.('#app')&&!e.target.closest?.('.card,.install-card,.inspect-panel,.keypad-card'))e.preventDefault()},{passive:false});
 
 function updateRoleUI(){
   if(ui.roleDot)ui.roleDot.style.background=COLORS[PLAYER_ID-1];
@@ -345,17 +323,8 @@ async function enterFullscreen(){
 }
 if(ui.fullscreenBtn){ui.fullscreenBtn.textContent=isStandalone()?'Đang toàn màn hình':((document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)?'Toàn màn hình':'Ẩn thanh Safari');ui.fullscreenBtn.addEventListener('click',enterFullscreen)}
 ui.closeInstallGuide?.addEventListener('click',()=>panel(ui.installGuide,false));
-function openRules(){
-  if(!ui.rulesModal||!ui.rulesTitle||!ui.rulesContent)return;
-  const st=state?.stage||0;
-  ui.rulesTitle.textContent=st?(MAP_NAMES[st]||'Luật chơi'):'Luật chơi';
-  ui.rulesContent.innerHTML=ruleHtml(st,false);
-  const card=ui.rulesModal.querySelector('.rules-card');
-  if(card)card.scrollTop=0;
-  panel(ui.rulesModal,true);
-}
-bindPress(ui.rulesBtn,openRules);
-bindPress(ui.closeRulesBtn,()=>panel(ui.rulesModal,false));
+function openRules(){const st=state?.stage||0;ui.rulesTitle.textContent=st?(MAP_NAMES[st]||'Luật chơi'):'Luật chơi';ui.rulesContent.innerHTML=ruleHtml(st,false);panel(ui.rulesModal,true)}
+ui.rulesBtn?.addEventListener('click',openRules);ui.closeRulesBtn?.addEventListener('click',()=>panel(ui.rulesModal,false));
 function normalizeServerUrl(value){
   const v=String(value||'').trim().replace(/\/+$/,'');
   if(!/^https?:\/\//i.test(v))return'';
@@ -502,7 +471,7 @@ function websocketUrl(){
   const base=API_BASE||location.origin,u=new URL(base);
   u.protocol=u.protocol==='https:'?'wss:':'ws:';
   u.pathname=`${u.pathname.replace(/\/+$/,'')}/ws`.replace(/\/+/g,'/');
-  u.search=`view=${PLAYER_ID}&client=${encodeURIComponent(CLIENT_ID)}&v=13.15`; 
+  u.search=`view=${PLAYER_ID}&client=${encodeURIComponent(CLIENT_ID)}&v=13.12`;
   return u.toString();
 }
 function startStateStream(){
